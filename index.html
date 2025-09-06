@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>Schedule Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 20px; background-color: #f8f9fa; color: #333; display: flex; justify-content: center; }
+      .container { max-width: 800px; width: 100%; }
+      .screen { display: none; }
+      .week-header-row, .week-data-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 10px; }
+      .day { text-align: center; }
+      .day-header { font-weight: bold; font-size: 0.9em; color: #555; padding-bottom: 5px; }
+      .day-label { font-size: 0.8em; color: #555; }
+      .day-header.sunday, .day.sunday .day-label { color: red; }
+      .day-header.saturday, .day.saturday .day-label { color: blue; }
+      select, button { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+      button { color: white; background-color: #0d6efd; border: none; cursor: pointer; margin-top: 10px; font-weight: 500; }
+      button:disabled { background-color: #9E9E9E; }
+      #status { margin-top: 15px; text-align: center; font-weight: bold; }
+      .auth-button { background-color: #4285F4; }
+      .change-link { font-size: 0.8em; text-decoration: underline; color: #1a73e8; cursor: pointer; }
+    </style>
+    <script src="https://apis.google.com/js/api.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Schedule Input Assistant</h2>
+      
+      <div id="auth-screen" class="screen">
+        <p>Please sign in with your Google account to continue.</p>
+        <button id="auth-button" class="auth-button" onclick="handleAuthClick()">Authorize and Load Calendars</button>
+      </div>
+
+      <div id="schedule-grid-screen" class="screen">
+        <p>
+          <select id="calendar-select" style="max-width: 300px;"></select>
+        </p>
+        <div class="week-header-row">
+          <div class="day-header sunday">Sun</div><div class="day-header">Mon</div><div class="day-header">Tue</div><div class="day-header">Wed</div><div class="day-header">Thu</div><div class="day-header">Fri</div><div class="day-header saturday">Sat</div>
+        </div>
+        <div id="schedule-grid"></div>
+        <button id="submit-button" onclick="handleFormSubmit()">Create Events</button>
+      </div>
+
+      <div id="status"></div>
+    </div>
+
+    <script>
+      // --- PASTE YOUR GOOGLE CLOUD CLIENT ID HERE ---
+      const CLIENT_ID = 'YOUR_GCP_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+      const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+      let gapiClient;
+      let tokenClient;
+
+      window.onload = function() {
+        gapi.load('client', initializeGapiClient);
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: '', // defined later
+        });
+        showScreen('auth-screen');
+      };
+      
+      async function initializeGapiClient() {
+        await gapi.client.init({
+          discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
+        });
+      }
+
+      function handleAuthClick() {
+        tokenClient.callback = async (resp) => {
+          if (resp.error !== undefined) {
+            throw (resp);
+          }
+          await getCalendarList();
+        };
+
+        if (gapi.client.getToken() === null) {
+          tokenClient.requestAccessToken({prompt: 'consent'});
+        } else {
+          tokenClient.requestAccessToken({prompt: ''});
+        }
+      }
+
+      async function getCalendarList() {
+        showStatus('Loading your calendars...');
+        try {
+          const response = await gapi.client.calendar.calendarList.list();
+          const calendars = response.result.items.filter(cal => cal.accessRole === 'writer' || cal.accessRole === 'owner');
+          populateCalendarSelect(calendars);
+          buildScheduleGrid();
+          showScreen('schedule-grid-screen');
+          showStatus('');
+        } catch (err) {
+          showStatus(`Error loading calendars: ${err.result.error.message}`, 'red');
+        }
+      }
+
+      function populateCalendarSelect(calendars) {
+        const select = document.getElementById('calendar-select');
+        select.innerHTML = '';
+        calendars.forEach(cal => {
+          const option = document.createElement('option');
+          option.value = cal.id;
+          option.textContent = cal.summary;
+          select.appendChild(option);
+        });
+      }
+
+      function buildScheduleGrid() {
+        // This logic remains the same, building the UI
+        const gridDiv = document.getElementById('schedule-grid');
+        let html = '';
+        const today = new Date();
+        const daysUntilSunday = (7 - today.getDay()) % 7;
+        const startDate = new Date();
+        startDate.setDate(today.getDate() + daysUntilSunday);
+
+        for (let i = 0; i < 42; i++) {
+          if (i % 7 === 0) html += '<div class="week-data-row">';
+          
+          const currentDate = new Date(startDate);
+          currentDate.setDate(startDate.getDate() + i);
+          
+          const isoString = currentDate.toISOString().split('T')[0];
+          const month = currentDate.toLocaleString('en-US', { month: 'short' });
+          const day = currentDate.getDate();
+
+          let displayLabel = `${day}`;
+          if (i === 0) displayLabel = `${month} ${day}`;
+
+          const isSunday = i % 7 === 0;
+          const isSaturday = i % 7 === 6;
+          let dayClasses = ['day'];
+          if (isSunday) dayClasses.push('sunday');
+          if (isSaturday) dayClasses.push('saturday');
+
+          html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div>
+                   <select name="shift_${isoString}"><option value="NONE"> </option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
+
+          if (i % 7 === 6) html += '</div>';
+        }
+        gridDiv.innerHTML = html;
+      }
+
+      async function handleFormSubmit() {
+        disableButton('submit-button', true);
+        showStatus('Creating events...');
+        
+        const formObject = { calendarId: document.getElementById('calendar-select').value };
+        document.querySelectorAll('#schedule-grid select').forEach(select => {
+          if (select.value !== 'NONE') {
+            formObject[select.name] = select.value;
+          }
+        });
+        
+        // Get the access token to send to the backend
+        const token = gapi.client.getToken();
+        if (!token) {
+            onFailure({message: "Authentication token is missing. Please re-authenticate."});
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/create-events', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    accessToken: token.access_token,
+                    formObject: formObject
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'An unknown error occurred.');
+            }
+            onSuccess(result.message);
+        } catch (error) {
+            onFailure(error);
+        }
+      }
+
+      function onSuccess(message) {
+        disableButton('submit-button', false);
+        showStatus(message, 'green');
+      }
+
+      function onFailure(error) {
+        disableButton('submit-button', false);
+        showStatus(`Error: ${error.message}`, 'red');
+      }
+      
+      function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+        document.getElementById(screenId).style.display = 'block';
+      }
+
+      function disableButton(buttonId, disabled) {
+         document.getElementById(buttonId).disabled = disabled;
+      }
+    </script>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
+  </body>
+</html>
