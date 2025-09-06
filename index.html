@@ -21,6 +21,7 @@
       .auth-button { background-color: #4285F4; }
       .change-link { font-size: 0.8em; text-decoration: underline; color: #1a73e8; cursor: pointer; }
     </style>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
   </head>
   <body>
     <div class="container">
@@ -46,7 +47,6 @@
       <div id="status"></div>
     </div>
 
-    <script src="https://accounts.google.com/gsi/client"></script>
     <script>
       // --- PASTE YOUR GOOGLE CLOUD CLIENT ID HERE ---
       const CLIENT_ID = '377649002021-agr0pdmlbcgpc5auikjglk2in0afcis4.apps.googleusercontent.com';
@@ -58,22 +58,21 @@
       const SCOPES = 'https://www.googleapis.com/auth/calendar';
       let tokenClient;
 
-      // This code now runs directly after the HTML and the gsi/client script have loaded.
-      
-      // 1. Initialize the Google Sign-In client
-      tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: CLIENT_ID,
-          scope: SCOPES,
-          callback: handleTokenResponse,
-      });
-      
-      // 2. Check for a stored token to decide which screen to show
-      const storedToken = getStoredToken();
-      if (storedToken) {
-        getCalendarList(storedToken);
-      } else {
-        showScreen('auth-screen');
-      }
+      window.onload = function() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: handleTokenResponse,
+        });
+        
+        // Check if we have a valid token stored
+        const storedToken = getStoredToken();
+        if (storedToken) {
+          getCalendarList(storedToken);
+        } else {
+          showScreen('auth-screen');
+        }
+      };
 
       function handleAuthClick() {
         tokenClient.requestAccessToken({prompt: 'consent'});
@@ -84,6 +83,7 @@
           onFailure({ message: `Auth error: ${tokenResponse.error}` });
           return;
         }
+        // Store the token and its expiry time
         const expires_at = Date.now() + (parseInt(tokenResponse.expires_in) * 1000);
         localStorage.setItem('google_auth_token', JSON.stringify({
           access_token: tokenResponse.access_token,
@@ -98,7 +98,8 @@
         if (!tokenString) return null;
         
         const tokenData = JSON.parse(tokenString);
-        if (Date.now() > tokenData.expires_at - 60000) { // 60-second buffer
+        // Check if token is expired (with a 60-second buffer)
+        if (Date.now() > tokenData.expires_at - 60000) {
           localStorage.removeItem('google_auth_token');
           return null;
         }
@@ -136,13 +137,17 @@
 
         const accessToken = getStoredToken();
         if (!accessToken) {
-          onFailure({message: "Your session has expired. Please click 'Change' and re-authorize."});
+          // If token expired, ask to re-authenticate
+          onFailure({message: "Your session has expired. Please click 'Change Calendar' and re-authorize."});
           return;
         }
         
         fetch(CREATE_EVENTS_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
             body: JSON.stringify({ formObject: formObject })
         })
         .then(response => response.json().then(data => ({ok: response.ok, data})))
