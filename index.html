@@ -60,7 +60,6 @@
 
       /**
        * This function is called automatically by the Google script tag once it has fully loaded.
-       * This is the new, reliable entry point for the application.
        */
       function gsiLoaded() {
         tokenClient = google.accounts.oauth2.initTokenClient({
@@ -100,7 +99,7 @@
         if (!tokenString) return null;
         
         const tokenData = JSON.parse(tokenString);
-        if (Date.now() > tokenData.expires_at - 60000) { // 60-second buffer
+        if (Date.now() > tokenData.expires_at - 60000) {
           localStorage.removeItem('google_auth_token');
           return null;
         }
@@ -162,13 +161,14 @@
       }
       
       // --- UI Helper Functions ---
+      // This entire block of functions must be present in your script.
       function populateCalendarSelect(calendars) {
         const select = document.getElementById('calendar-select');
         select.innerHTML = '';
         calendars.forEach(cal => {
           const option = document.createElement('option');
           option.value = cal.id;
-          option.textContent = cal.summary; // Mismatch corrected in previous steps
+          option.textContent = cal.summary;
           select.appendChild(option);
         });
       }
@@ -223,6 +223,12 @@
       function showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
         document.getElementById(screenId).style.display = 'block';
+      }
+
+      function showStatus(message, color = 'black') {
+        const statusDiv = document.getElementById('status');
+        statusDiv.textContent = message;
+        statusDiv.style.color = color;
       }
 
       function disableButton(buttonId, disabled) {
