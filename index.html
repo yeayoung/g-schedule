@@ -51,10 +51,11 @@
 ';
 
       // --- PASTE YOUR CLOUD FUNCTION URLS HERE ---
-      const CREATE_EVENTS_URL = 'https://g-schedule.vercel.app';
-
+      const CREATE_EVENTS_URL = 'https://g-schedule.vercel.app/create-events';
+      const CREATE_EVENTS_URL = 'https://g-schedule.vercel.app/get-calendars';
       // Use a broader scope that allows listing calendars AND creating events
       const SCOPES = 'https://www.googleapis.com/auth/calendar';
+      
       let tokenClient;
 
       window.onload = function() {
