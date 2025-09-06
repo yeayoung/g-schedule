@@ -21,7 +21,7 @@
       .auth-button { background-color: #4285F4; }
       .change-link { font-size: 0.8em; text-decoration: underline; color: #1a73e8; cursor: pointer; }
     </style>
-    <script async defer src="https://accounts.google.com/gsi/client"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gsiLoaded()" async defer></script>
   </head>
   <body>
     <div class="container">
@@ -58,21 +58,24 @@
       const SCOPES = 'https://www.googleapis.com/auth/calendar';
       let tokenClient;
 
-      window.onload = function() {
+      /**
+       * This function is called by the Google script tag once it has loaded,
+       * preventing any race conditions.
+       */
+      function gsiLoaded() {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
             callback: handleTokenResponse,
         });
         
-        // Check if we have a valid token stored
         const storedToken = getStoredToken();
         if (storedToken) {
           getCalendarList(storedToken);
         } else {
           showScreen('auth-screen');
         }
-      };
+      }
 
       function handleAuthClick() {
         tokenClient.requestAccessToken({prompt: 'consent'});
@@ -83,7 +86,6 @@
           onFailure({ message: `Auth error: ${tokenResponse.error}` });
           return;
         }
-        // Store the token and its expiry time
         const expires_at = Date.now() + (parseInt(tokenResponse.expires_in) * 1000);
         localStorage.setItem('google_auth_token', JSON.stringify({
           access_token: tokenResponse.access_token,
@@ -98,7 +100,6 @@
         if (!tokenString) return null;
         
         const tokenData = JSON.parse(tokenString);
-        // Check if token is expired (with a 60-second buffer)
         if (Date.now() > tokenData.expires_at - 60000) {
           localStorage.removeItem('google_auth_token');
           return null;
@@ -137,17 +138,13 @@
 
         const accessToken = getStoredToken();
         if (!accessToken) {
-          // If token expired, ask to re-authenticate
-          onFailure({message: "Your session has expired. Please click 'Change Calendar' and re-authorize."});
+          onFailure({message: "Your session has expired. Please click 'Change' and re-authorize."});
           return;
         }
         
         fetch(CREATE_EVENTS_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
             body: JSON.stringify({ formObject: formObject })
         })
         .then(response => response.json().then(data => ({ok: response.ok, data})))
@@ -164,8 +161,54 @@
       }
       
       // --- UI Helper Functions ---
-      function populateCalendarSelect(calendars) { /* ... same as before */ }
-      function buildScheduleGrid() { /* ... same as before */ }
+      function populateCalendarSelect(calendars) {
+        const select = document.getElementById('calendar-select');
+        select.innerHTML = '';
+        calendars.forEach(cal => {
+          const option = document.createElement('option');
+          option.value = cal.id;
+          option.textContent = cal.summary;
+          select.appendChild(option);
+        });
+      }
+
+      function buildScheduleGrid() {
+        const gridDiv = document.getElementById('schedule-grid');
+        let html = '';
+        const today = new Date();
+        const daysUntilSunday = (7 - today.getDay()) % 7;
+        const startDate = new Date();
+        startDate.setDate(today.getDate() + daysUntilSunday);
+
+        for (let i = 0; i < 42; i++) {
+          if (i % 7 === 0) html += '<div class="week-data-row">';
+          
+          const currentDate = new Date(startDate);
+          currentDate.setDate(startDate.getDate() + i);
+          
+          const isoString = currentDate.toISOString().split('T')[0];
+          const month = currentDate.toLocaleString('en-US', { month: 'short' });
+          const day = currentDate.getDate();
+
+          let displayLabel = `${day}`;
+          if (i === 0 || day === 1) {
+              displayLabel = `${month} ${day}`;
+          }
+          
+          const isSunday = (i % 7) === 0;
+          const isSaturday = (i % 7) === 6;
+          let dayClasses = ['day'];
+          if (isSunday) dayClasses.push('sunday');
+          if (isSaturday) dayClasses.push('saturday');
+
+          html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div>
+                   <select name="shift_${isoString}"><option value="NONE"> </option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
+
+          if (i % 7 === 6) html += '</div>';
+        }
+        gridDiv.innerHTML = html;
+      }
+      
       function onSuccess(message) { /* ... same as before */ }
       function onFailure(error) { /* ... same as before */ }
       function showScreen(screenId) { /* ... same as before */ }
