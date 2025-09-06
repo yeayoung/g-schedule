@@ -9,8 +9,8 @@
       .container { max-width: 800px; width: 100%; }
       .screen { display: none; }
       .week-header-row, .week-data-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 10px; }
-      .day { text-align: center; }
-      .day-header { font-weight: bold; font-size: 0.9em; color: #555; padding-bottom: 5px; }
+      .day { text-align: left; padding-left: 5px;}
+      .day-header { font-weight: bold; font-size: 0.9em; color: #555; padding-bottom: 5px; text-align: left; padding-left: 5px;}
       .day-label { font-size: 0.8em; color: #555; }
       .day-header.sunday, .day.sunday .day-label { color: red; }
       .day-header.saturday, .day.saturday .day-label { color: blue; }
@@ -146,7 +146,7 @@
         calendars.forEach(cal => {
           const option = document.createElement('option');
           option.value = cal.id;
-          option.textContent = cal.summary;
+          option.textContent = cal.name;
           select.appendChild(option);
         });
       }
