@@ -10,8 +10,8 @@
       .container { max-width: 800px; width: 100%; }
       .screen { display: none; }
       .week-header-row, .week-data-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 10px; }
-      .day { text-align: center; }
-      .day-header { font-weight: bold; font-size: 0.9em; color: #555; padding-bottom: 5px; }
+      .day { text-align: left; padding-left: 5px; }
+      .day-header { font-weight: bold; font-size: 0.9em; color: #555; padding-bottom: 5px; text-align: left; padding-left: 5px; }
       .day-label { font-size: 0.8em; color: #555; }
       .day-header.sunday, .day.sunday .day-label { color: red; }
       .day-header.saturday, .day.saturday .day-label { color: blue; }
@@ -26,7 +26,7 @@
   </head>
   <body>
     <div class="container">
-      <h2>Schedule Assistant for Google Calendar</h2>
+      <h2>Schedule Assistant</h2>
       
       <div id="auth-screen" class="screen">
         <p>Please sign in with your Google account to authorize calendar access.</p>
@@ -41,7 +41,7 @@
           <div class="day-header sunday">Sun</div><div class="day-header">Mon</div><div class="day-header">Tue</div><div class="day-header">Wed</div><div class="day-header">Thu</div><div class="day-header">Fri</div><div class="day-header saturday">Sat</div>
         </div>
         <div id="schedule-grid"></div>
-        <button id="submit-button" onclick="handleFormSubmit()">Create Events</button>
+        <button id="submit-button" onclick="handleFormSubmit()">Save Schedule</button>
       </div>
 
       <div id="status"></div>
@@ -58,11 +58,8 @@
 
       const SCOPES = 'https://www.googleapis.com/auth/calendar';
       let tokenClient;
-      let scheduleDates =[];
+      let scheduleDates = [];
 
-      /**
-       * This function is called automatically by the Google script tag once it has fully loaded.
-       */
       function gsiLoaded() {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
@@ -92,7 +89,6 @@
           access_token: tokenResponse.access_token,
           expires_at: expires_at
         }));
-        
         getCalendarList(tokenResponse.access_token);
       }
 
@@ -118,19 +114,17 @@
           if (!response.ok) throw new Error(calendars.message);
 
           populateCalendarSelect(calendars);
-         
-          // After populating calendars, get the existing shifts
-          await getExistingShifts(accessToken);
-
-          buildScheduleGrid();
+          buildScheduleGrid(); // Build the empty grid first
+          await getExistingShifts(accessToken); // Then fill it with existing shifts
+          
           showScreen('schedule-grid-screen');
           showStatus('');
         } catch (err) {
           onFailure(err);
         }
       }
-
-     async function getExistingShifts(accessToken) {
+      
+      async function getExistingShifts(accessToken) {
         showStatus('Loading existing schedule...');
         try {
             const response = await fetch(GET_SHIFTS_URL, {
@@ -143,9 +137,6 @@
             const existingShifts = await response.json();
             if (!response.ok) throw new Error(existingShifts.message);
             
-            // Before populating, clear any previous selections in the grid
-            document.querySelectorAll('#schedule-grid select').forEach(select => select.value = 'NONE');
-            
             for (const dateKey in existingShifts) {
                 const select = document.getElementById(`shift_${dateKey}`);
                 if (select) {
@@ -156,7 +147,7 @@
             onFailure(err);
         }
       }
-
+      
       async function calendarSelectionChanged() {
         const newCalendarId = document.getElementById('calendar-select').value;
         localStorage.setItem('targetCalendarId', newCalendarId);
@@ -167,10 +158,8 @@
             return;
         }
         
-        // Just fetch the shifts for the newly selected calendar and update the grid
         await getExistingShifts(accessToken);
         showStatus('Schedule updated for the selected calendar.');
-        // Clear the status message after a couple of seconds
         setTimeout(() => showStatus(''), 2000);
       }
 
@@ -193,7 +182,7 @@
         fetch(CREATE_EVENTS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-            body: JSON.stringify({ formObject }) // No longer need to send dateRange
+            body: JSON.stringify({ formObject })
         })
         .then(response => response.json().then(data => ({ok: response.ok, data})))
         .then(({ok, data}) => {
@@ -201,6 +190,28 @@
             onSuccess(data.message);
         })
         .catch(onFailure);
+      }
+
+      function changeCalendar() {
+        localStorage.removeItem('google_auth_token');
+        showScreen('auth-screen');
+      }
+      
+      // --- UI Helper Functions ---
+      function populateCalendarSelect(calendars) {
+        const select = document.getElementById('calendar-select');
+        select.innerHTML = '';
+        calendars.forEach(cal => {
+          const option = document.createElement('option');
+          option.value = cal.id;
+          option.textContent = cal.name;
+          select.appendChild(option);
+        });
+        // After populating, set the selected value from storage
+        const savedId = localStorage.getItem('targetCalendarId');
+        if (savedId) {
+            select.value = savedId;
+        }
       }
 
       function buildScheduleGrid() {
@@ -211,7 +222,7 @@
         const startDate = new Date();
         startDate.setDate(today.getDate() + daysUntilSunday);
 
-        scheduleDates = []; // Clear and repopulate global dates
+        scheduleDates = [];
         for (let i = 0; i < 42; i++) {
           const currentDate = new Date(startDate);
           currentDate.setDate(startDate.getDate() + i);
@@ -235,57 +246,6 @@
             html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div><select id="shift_${isoString}" name="shift_${isoString}"><option value="NONE"> </option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
           });
           html += '</div>';
-        }
-        gridDiv.innerHTML = html;
-      }
-
-
-      // --- UI Helper Functions ---
-      // This entire block of functions must be present in your script.
-      function populateCalendarSelect(calendars) {
-        const select = document.getElementById('calendar-select');
-        select.innerHTML = '';
-        calendars.forEach(cal => {
-          const option = document.createElement('option');
-          option.value = cal.id;
-          option.textContent = cal.summary;
-          select.appendChild(option);
-        });
-      }
-
-      function buildScheduleGrid() {
-        const gridDiv = document.getElementById('schedule-grid');
-        let html = '';
-        const today = new Date();
-        const daysUntilSunday = (7 - today.getDay()) % 7;
-        const startDate = new Date();
-        startDate.setDate(today.getDate() + daysUntilSunday);
-
-        for (let i = 0; i < 42; i++) {
-          if (i % 7 === 0) html += '<div class="week-data-row">';
-          
-          const currentDate = new Date(startDate);
-          currentDate.setDate(startDate.getDate() + i);
-          
-          const isoString = currentDate.toISOString().split('T')[0];
-          const month = currentDate.toLocaleString('en-US', { month: 'short' });
-          const day = currentDate.getDate();
-
-          let displayLabel = `${day}`;
-          if (i === 0 || day === 1) {
-              displayLabel = `${month} ${day}`;
-          }
-          
-          const isSunday = (i % 7) === 0;
-          const isSaturday = (i % 7) === 6;
-          let dayClasses = ['day'];
-          if (isSunday) dayClasses.push('sunday');
-          if (isSaturday) dayClasses.push('saturday');
-
-          html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div>
-                   <select name="shift_${isoString}"><option value="NONE"> </option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
-
-          if (i % 7 === 6) html += '</div>';
         }
         gridDiv.innerHTML = html;
       }
