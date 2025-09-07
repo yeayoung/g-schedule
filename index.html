@@ -3,6 +3,7 @@
   <head>
     <base target="_top">
     <title>Schedule Assistant</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 20px; background-color: #f8f9fa; color: #333; display: flex; justify-content: center; }
@@ -25,7 +26,7 @@
   </head>
   <body>
     <div class="container">
-      <h2>Schedule Input Assistant</h2>
+      <h2>Schedule Assistant for Google Calendar</h2>
       
       <div id="auth-screen" class="screen">
         <p>Please sign in with your Google account to authorize calendar access.</p>
@@ -52,6 +53,7 @@
       const CLIENT_ID = '377649002021-agr0pdmlbcgpc5auikjglk2in0afcis4.apps.googleusercontent.com';
 
       // --- PASTE YOUR CLOUD FUNCTION URLS HERE ---
+      const GET_SHIFTS_URL = 'https://g-schedule.vercel.app/api/get-shifts';
       const GET_CALENDARS_URL = 'https://g-schedule.vercel.app/api/get-calendars';
       const CREATE_EVENTS_URL = 'https://g-schedule.vercel.app/api/create-events';
 
@@ -116,6 +118,10 @@
           if (!response.ok) throw new Error(calendars.message);
 
           populateCalendarSelect(calendars);
+          
+          // After populating calendars, get the existing shifts
+          await getExistingShifts(accessToken);
+
           buildScheduleGrid();
           showScreen('schedule-grid-screen');
           showStatus('');
@@ -123,43 +129,107 @@
           onFailure(err);
         }
       }
-      
-      function handleFormSubmit() {
+
+      async function getExistingShifts(accessToken) {
+        showStatus('Loading existing schedule...');
+        const today = new Date();
+        const daysUntilSunday = (7 - today.getDay()) % 7;
+        const startDate = new Date();
+        startDate.setDate(today.getDate() + daysUntilSunday);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 42);
+
+        const response = await fetch(GET_SHIFTS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({
+                calendarId: document.getElementById('calendar-select').value,
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString()
+            })
+        });
+        const existingShifts = await response.json();
+        if (!response.ok) throw new Error(existingShifts.message);
+        
+        // Populate the grid with existing shifts
+        for (const dateKey in existingShifts) {
+            const select = document.getElementById(`shift_${dateKey}`);
+            if (select) {
+                select.value = existingShifts[dateKey];
+            }
+        }
+      }
+
+      function buildScheduleGrid() {
+        const gridDiv = document.getElementById('schedule-grid');
+        let html = '';
+        const today = new Date();
+        const daysUntilSunday = (7 - today.getDay()) % 7;
+        const startDate = new Date();
+        startDate.setDate(today.getDate() + daysUntilSunday);
+
+        scheduleDates = []; // Clear and repopulate global dates
+        for (let i = 0; i < 42; i++) {
+          const currentDate = new Date(startDate);
+          currentDate.setDate(startDate.getDate() + i);
+          scheduleDates.push(currentDate);
+        }
+
+        for (let i = 0; i < scheduleDates.length; i += 7) {
+          const weekDates = scheduleDates.slice(i, i + 7);
+          html += '<div class="week-data-row">';
+          weekDates.forEach((currentDate, index) => {
+            const isoString = currentDate.toISOString().split('T')[0];
+            const month = currentDate.toLocaleString('en-US', { month: 'short' });
+            const day = currentDate.getDate();
+            let displayLabel = `${day}`;
+            if (i === 0 && index === 0 || day === 1) displayLabel = `${month} ${day}`;
+            const isSunday = (index === 0);
+            const isSaturday = (index === 6);
+            let dayClasses = ['day'];
+            if (isSunday) dayClasses.push('sunday');
+            if (isSaturday) dayClasses.push('saturday');
+            html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div><select id="shift_${isoString}" name="shift_${isoString}"><option value="NONE"> </option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
+          });
+          html += '</div>';
+        }
+        gridDiv.innerHTML = html;
+      }
+
+      async function handleFormSubmit() {
         disableButton('submit-button', true);
-        showStatus('Creating events...');
+        showStatus('Syncing schedule...');
         
         const formObject = { calendarId: document.getElementById('calendar-select').value };
         document.querySelectorAll('#schedule-grid select').forEach(select => {
-          if (select.value !== 'NONE') {
-            formObject[select.name] = select.value;
-          }
+            formObject[select.id] = select.value;
         });
-
+        
         const accessToken = getStoredToken();
         if (!accessToken) {
-          onFailure({message: "Your session has expired. Please click 'Change' and re-authorize."});
-          disableButton('submit-button', false);
-          return;
+            onFailure({message: "Session expired. Please re-authorize."});
+            return;
         }
-        
-        fetch(CREATE_EVENTS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-            body: JSON.stringify({ formObject: formObject })
-        })
-        .then(response => response.json().then(data => ({ok: response.ok, data})))
-        .then(({ok, data}) => {
-            if (!ok) throw new Error(data.message);
-            onSuccess(data.message);
-        })
-        .catch(onFailure);
+
+        const dateRange = {
+            start: scheduleDates[0].toISOString(),
+            end: new Date(scheduleDates[41].getTime() + 86400000).toISOString() // End of the last day
+        };
+
+        try {
+            const response = await fetch(CREATE_EVENTS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+                body: JSON.stringify({ formObject, dateRange })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+            onSuccess(result.message);
+        } catch (error) {
+            onFailure(error);
+        }
       }
-      
-      function changeCalendar() {
-        localStorage.removeItem('google_auth_token');
-        showScreen('auth-screen');
-      }
-      
+
       // --- UI Helper Functions ---
       // This entire block of functions must be present in your script.
       function populateCalendarSelect(calendars) {
