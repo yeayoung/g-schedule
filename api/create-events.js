@@ -1,10 +1,9 @@
 const { google } = require("googleapis");
 
-// The getShiftTimes helper function remains the same
-function getShiftTimes(isoDateString, shiftType) { /* ... same as before ... */ }
+const EVENT_TAG = "Managed by Schedule Assistant";
 
 module.exports = async (req, res) => {
-  // Set CORS headers...
+  // CORS headers...
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -26,31 +25,28 @@ module.exports = async (req, res) => {
       return res.status(400).json({ message: 'No calendar was selected.' });
     }
 
-    // Calculate the 6-week date range on the server
     const today = new Date();
     const dayOfWeek = today.getUTCDay();
     const daysUntilSunday = (7 - dayOfWeek) % 7;
     const startDate = new Date(today.getTime());
+    startDate.setUTCHours(0,0,0,0);
     startDate.setUTCDate(today.getUTCDate() + daysUntilSunday);
     const endDate = new Date(startDate.getTime());
     endDate.setUTCDate(startDate.getUTCDate() + 42);
 
-    // Step 1: Find all existing shifts in the date range
     const existingEvents = await calendar.events.list({
       calendarId: calendarId,
       timeMin: startDate.toISOString(),
       timeMax: endDate.toISOString(),
-      q: '"Work Shift" OR "Call 1 Shift" OR "Call 2 Shift"',
+      q: EVENT_TAG,
       singleEvents: true,
     });
 
-    // Step 2: Delete all of them
     const deletePromises = existingEvents.data.items.map(event => 
       calendar.events.delete({ calendarId: calendarId, eventId: event.id })
     );
     await Promise.all(deletePromises);
 
-    // Step 3: Create new events based on the form
     const createPromises = [];
     let createdCount = 0;
     for (const key in formObject) {
@@ -64,7 +60,8 @@ module.exports = async (req, res) => {
               calendar.events.insert({
                 calendarId: calendarId,
                 resource: {
-                  summary: shiftDetails.title,
+                  summary: `${shiftDetails.title} [${EVENT_TAG}]`,
+                  description: EVENT_TAG,
                   start: { dateTime: shiftDetails.startTime.toISOString() },
                   end: { dateTime: shiftDetails.endTime.toISOString() },
                 },
@@ -82,7 +79,6 @@ module.exports = async (req, res) => {
   }
 };
 
-// Paste the getShiftTimes function from the previous version here
 function getShiftTimes(isoDateString, shiftType) {
     const date = new Date(isoDateString + "T12:00:00Z");
     const dayOfWeek = date.getUTCDay();

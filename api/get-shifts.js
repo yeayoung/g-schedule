@@ -1,5 +1,7 @@
 const { google } = require("googleapis");
 
+const EVENT_TAG = "Managed by Schedule Assistant";
+
 module.exports = async (req, res) => {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -19,6 +21,7 @@ module.exports = async (req, res) => {
     const dayOfWeek = today.getUTCDay();
     const daysUntilSunday = (7 - dayOfWeek) % 7;
     const startDate = new Date(today.getTime());
+    startDate.setUTCHours(0,0,0,0);
     startDate.setUTCDate(today.getUTCDate() + daysUntilSunday);
     const endDate = new Date(startDate.getTime());
     endDate.setUTCDate(startDate.getUTCDate() + 42);
@@ -31,18 +34,20 @@ module.exports = async (req, res) => {
       calendarId: calendarId,
       timeMin: startDate.toISOString(),
       timeMax: endDate.toISOString(),
-      q: '"Work Shift" OR "Call 1 Shift" OR "Call 2 Shift"',
+      q: EVENT_TAG,
       singleEvents: true,
     });
 
     const shifts = {};
     response.data.items.forEach(event => {
+      // Ensure the event has a dateTime, not just a date (for all-day events)
       if (event.start.dateTime) {
           const dateKey = event.start.dateTime.split('T')[0];
           let shiftType = "NONE";
           if (event.summary.includes("Work Shift")) shiftType = "W";
           if (event.summary.includes("Call 1 Shift")) shiftType = "C1";
           if (event.summary.includes("Call 2 Shift")) shiftType = "C2";
+          
           shifts[dateKey] = shiftType;
       }
     });
