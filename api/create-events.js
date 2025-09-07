@@ -1,5 +1,8 @@
 const { google } = require("googleapis");
 
+// The getShiftTimes helper function remains the same
+function getShiftTimes(isoDateString, shiftType) { /* ... same as before ... */ }
+
 module.exports = async (req, res) => {
   // Set CORS headers...
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,7 +15,7 @@ module.exports = async (req, res) => {
   
   try {
     const accessToken = req.headers.authorization.split('Bearer ')[1];
-    const { formObject, dateRange } = req.body;
+    const { formObject } = req.body;
 
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: accessToken });
@@ -23,11 +26,20 @@ module.exports = async (req, res) => {
       return res.status(400).json({ message: 'No calendar was selected.' });
     }
 
+    // Calculate the 6-week date range on the server
+    const today = new Date();
+    const dayOfWeek = today.getUTCDay();
+    const daysUntilSunday = (7 - dayOfWeek) % 7;
+    const startDate = new Date(today.getTime());
+    startDate.setUTCDate(today.getUTCDate() + daysUntilSunday);
+    const endDate = new Date(startDate.getTime());
+    endDate.setUTCDate(startDate.getUTCDate() + 42);
+
     // Step 1: Find all existing shifts in the date range
     const existingEvents = await calendar.events.list({
       calendarId: calendarId,
-      timeMin: dateRange.start,
-      timeMax: dateRange.end,
+      timeMin: startDate.toISOString(),
+      timeMax: endDate.toISOString(),
       q: '"Work Shift" OR "Call 1 Shift" OR "Call 2 Shift"',
       singleEvents: true,
     });
@@ -70,39 +82,31 @@ module.exports = async (req, res) => {
   }
 };
 
+// Paste the getShiftTimes function from the previous version here
 function getShiftTimes(isoDateString, shiftType) {
-  // ... (This helper function remains the same as the last version)
-  const date = new Date(isoDateString + "T12:00:00Z");
-  const dayOfWeek = date.getUTCDay();
-  const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-  
-  let title, startTime, endTime;
-  
-  const W_START_HOUR_UTC = 13;
-  const W_END_HOUR_UTC = 23;
-  const W_END_MINUTE_UTC = 30;
-  const C_START_WEEKEND_UTC = 11;
-  const C_START_WEEKDAY_UTC = 13;
-  const C_END_HOUR_UTC = 11;
-
-  switch (shiftType) {
-    case 'W':
-      title = "Work Shift";
-      startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), W_START_HOUR_UTC, 0, 0));
-      endTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), W_END_HOUR_UTC, W_END_MINUTE_UTC, 0));
-      break;
-    case 'C1':
-    case 'C2':
-      title = (shiftType === 'C1') ? "Call 1 Shift" : "Call 2 Shift";
-      const nextDay = new Date(date);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      endTime = new Date(Date.UTC(nextDay.getUTCFullYear(), nextDay.getUTCMonth(), nextDay.getUTCDate(), C_END_HOUR_UTC, 0, 0));
-      if (isWeekend) {
-        startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_WEEKEND_UTC, 0, 0));
-      } else { 
-        startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_WEEKDAY_UTC, 0, 0));
-      }
-      break;
-  }
-  return { title, startTime, endTime };
+    const date = new Date(isoDateString + "T12:00:00Z");
+    const dayOfWeek = date.getUTCDay();
+    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+    let title, startTime, endTime;
+    const W_START_HOUR_UTC = 13, W_END_HOUR_UTC = 23, W_END_MINUTE_UTC = 30;
+    const C_START_WEEKEND_UTC = 11, C_START_WEEKDAY_UTC = 13, C_END_HOUR_UTC = 11;
+    switch (shiftType) {
+        case 'W':
+            title = "Work Shift";
+            startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), W_START_HOUR_UTC, 0, 0));
+            endTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), W_END_HOUR_UTC, W_END_MINUTE_UTC, 0));
+            break;
+        case 'C1': case 'C2':
+            title = (shiftType === 'C1') ? "Call 1 Shift" : "Call 2 Shift";
+            const nextDay = new Date(date);
+            nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+            endTime = new Date(Date.UTC(nextDay.getUTCFullYear(), nextDay.getUTCMonth(), nextDay.getUTCDate(), C_END_HOUR_UTC, 0, 0));
+            if (isWeekend) {
+                startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_WEEKEND_UTC, 0, 0));
+            } else {
+                startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_WEEKDAY_UTC, 0, 0));
+            }
+            break;
+    }
+    return { title, startTime, endTime };
 }
