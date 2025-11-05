@@ -244,7 +244,7 @@
             let dayClasses = ['day'];
             if (isSunday) dayClasses.push('sunday');
             if (isSaturday) dayClasses.push('saturday');
-            html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div><select id="shift_${isoString}" name="shift_${isoString}"><option value="NONE"> </option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
+            html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div><select id="shift_${isoString}" name="shift_${isoString}"><option value="NONE">None</option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
           });
           html += '</div>';
         }

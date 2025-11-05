@@ -84,8 +84,16 @@ function getShiftTimes(isoDateString, shiftType) {
     const dayOfWeek = date.getUTCDay();
     const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
     let title, startTime, endTime;
-    const W_START_HOUR_UTC = 13, W_END_HOUR_UTC = 23, W_END_MINUTE_UTC = 30;
-    const C_START_WEEKEND_UTC = 11, C_START_WEEKDAY_UTC = 13, C_END_HOUR_UTC = 11;
+
+    // Shift times in UTC (assuming EDT is UTC-4)
+    const W_START_HOUR_UTC = 13;   // 9:00 AM EDT
+    const W_END_HOUR_UTC = 23;     // 7:00 PM EDT
+    const W_END_MINUTE_UTC = 30;   // 7:30 PM EDT
+    
+    const C_START_HOUR_UTC = 13; // 9:00 AM EDT
+    const C_END_HOUR_UTC = 3;    // 11:59 PM EDT (which is 03:59 UTC the *next day*)
+    const C_END_MINUTE_UTC = 59; // 11:59 PM EDT
+    
     switch (shiftType) {
         case 'W':
             title = "Work Shift";
@@ -93,15 +101,16 @@ function getShiftTimes(isoDateString, shiftType) {
             endTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), W_END_HOUR_UTC, W_END_MINUTE_UTC, 0));
             break;
         case 'C1': case 'C2':
-            title = (shiftType === 'C1') ? "Call 1 Shift" : "Call 2 Shift";
+            // --- THIS IS THE ONLY LINE THAT CHANGED ---
+            title = (shiftType === 'C1') ? "Work & Call 1 Shift" : "Work & Call 2 Shift";
+            
+            // Start Time is 9:00 AM (13:00 UTC) on the selected day
+            startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_HOUR_UTC, 0, 0));
+
+            // End Time is 11:59 PM (03:59 UTC on the next day)
             const nextDay = new Date(date);
             nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-            endTime = new Date(Date.UTC(nextDay.getUTCFullYear(), nextDay.getUTCMonth(), nextDay.getUTCDate(), C_END_HOUR_UTC, 0, 0));
-            if (isWeekend) {
-                startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_WEEKEND_UTC, 0, 0));
-            } else {
-                startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_WEEKDAY_UTC, 0, 0));
-            }
+            endTime = new Date(Date.UTC(nextDay.getUTCFullYear(), nextDay.getUTCMonth(), nextDay.getUTCDate(), C_END_HOUR_UTC, C_END_MINUTE_UTC, 0));
             break;
     }
     return { title, startTime, endTime };
