@@ -10,7 +10,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "firebase": "^12.2.1",
     "googleapis": "^159.0.0"
   }
 }

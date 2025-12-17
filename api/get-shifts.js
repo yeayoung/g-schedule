@@ -44,9 +44,19 @@ module.exports = async (req, res) => {
       if (event.start.dateTime) {
           const dateKey = event.start.dateTime.split('T')[0];
           let shiftType = "NONE";
-          if (event.summary.includes("Work Shift")) shiftType = "W";
-          if (event.summary.includes("Call 1 Shift")) shiftType = "C1";
-          if (event.summary.includes("Call 2 Shift")) shiftType = "C2";
+          
+          // Check for exact matches first to avoid confusion
+          const summary = event.summary;
+          
+          if (summary.includes("Work Shift")) shiftType = "W";
+          
+          // Check specific Call types
+          if (summary.includes("Work & Call 1 Shift")) shiftType = "C1";
+          if (summary.includes("Work & Call 2 Shift")) shiftType = "C2";
+          
+          // New Types
+          if (summary.includes("Call 1 Only")) shiftType = "C1O";
+          if (summary.includes("Call 2 Only")) shiftType = "C2O";
           
           shifts[dateKey] = shiftType;
       }

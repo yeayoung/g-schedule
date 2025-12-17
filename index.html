@@ -9,18 +9,71 @@
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 20px; background-color: #f8f9fa; color: #333; display: flex; justify-content: center; }
       .container { max-width: 800px; width: 100%; }
       .screen { display: none; }
-      .week-header-row, .week-data-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 10px; }
-      .day { text-align: left; padding-left: 5px; }
-      .day-header { font-weight: bold; font-size: 0.9em; color: #555; padding-bottom: 5px; text-align: left; padding-left: 5px; }
-      .day-label { font-size: 0.8em; color: #555; }
-      .day-header.sunday, .day.sunday .day-label { color: red; }
-      .day-header.saturday, .day.saturday .day-label { color: blue; }
-      select, button { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-      button { color: white; background-color: #0d6efd; border: none; cursor: pointer; margin-top: 10px; font-weight: 500; }
+      
+      /* Grid Layout */
+      .week-header-row, .week-data-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+      
+      /* Day Box Styling */
+      .day { 
+        text-align: center; 
+        border-radius: 6px; 
+        padding: 4px 2px;
+        border: 1px solid #e0e0e0;
+        background-color: white; /* Default 'None' color */
+        transition: background-color 0.2s;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 50px;
+      }
+
+      /* Color Coding Classes */
+      .day.bg-w { background-color: #ff80ff; border-color: #ff00ff; } 
+      .day.bg-c1 { background-color: #880e4f; border-color: #880e4f; } 
+      .day.bg-c2 { background-color: #c2185b; border-color: #c2185b; } 
+      .day.bg-c1o { background-color: #4a148c; border-color: #4a148c; }
+      .day.bg-c2o { background-color: #7b1fa2; border-color: #7b1fa2; }
+
+      /* Text Colors */
+      .day.bg-c1 .day-label, .day.bg-c1 select, 
+      .day.bg-c2 .day-label, .day.bg-c2 select,
+      .day.bg-c1o .day-label, .day.bg-c1o select,
+      .day.bg-c2o .day-label, .day.bg-c2o select { color: white; }
+      
+      .day.bg-w .day-label, .day.bg-w select { color: black; }
+      
+      /* Specific override for white text on dark backgrounds */
+      .day.bg-c1 .day-label, .day.bg-c2 .day-label,
+      .day.bg-c1o .day-label, .day.bg-c2o .day-label { color: white !important; }
+
+      .day-header { font-weight: bold; font-size: 0.8em; color: #555; padding-bottom: 5px; text-align: center; }
+      .day-label { font-size: 0.75em; color: #555; margin-bottom: 2px; font-weight: 600;}
+      
+      .day-header.sunday, .day.sunday .day-label { color: #d32f2f; }
+      .day-header.saturday, .day.saturday .day-label { color: #1976d2; }
+      
+      /* Specific override for white text on dark backgrounds */
+      .day.bg-c1 .day-label, .day.bg-c2 .day-label { color: white !important; }
+
+      /* Select Box Styling - Smaller for Mobile */
+      select { 
+        width: 100%; 
+        padding: 2px; 
+        font-size: 11px; /* Smaller font size */
+        border-radius: 4px; 
+        border: 1px solid #ccc; 
+        box-sizing: border-box; 
+        background-color: rgba(255,255,255,0.9); /* Slight transparency */
+        color: #333;
+        height: 24px;
+      }
+      
+      /* Main Dropdown and Buttons */
+      #calendar-select { padding: 10px; font-size: 16px; width: 100%; }
+      button { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; margin-top: 10px; font-weight: 500; color: white; background-color: #0d6efd; }
       button:disabled { background-color: #9E9E9E; }
       #status { margin-top: 15px; text-align: center; font-weight: bold; }
       .auth-button { background-color: #4285F4; }
-      .change-link { font-size: 0.8em; text-decoration: underline; color: #1a73e8; cursor: pointer; }
     </style>
     <script src="https://accounts.google.com/gsi/client" onload="gsiLoaded()" async defer></script>
   </head>
@@ -48,13 +101,13 @@
     </div>
 
     <script>
-      // --- PASTE YOUR GOOGLE CLOUD CLIENT ID HERE ---
-      const CLIENT_ID = '377649002021-agr0pdmlbcgpc5auikjglk2in0afcis4.apps.googleusercontent.com';
-
-      // --- PASTE YOUR CLOUD FUNCTION URLS HERE ---
-      const GET_SHIFTS_URL = '/api/get-shifts';
+      // --- USE RELATIVE URLS FOR LOCAL & LIVE ENVIRONMENTS ---
       const GET_CALENDARS_URL = '/api/get-calendars';
+      const GET_SHIFTS_URL = '/api/get-shifts';
       const CREATE_EVENTS_URL = '/api/create-events';
+
+      // --- PASTE YOUR GOOGLE CLOUD CLIENT ID HERE ---
+      const CLIENT_ID = 'YOUR_GCP_OAUTH_CLIENT_ID.apps.googleusercontent.com';
 
       const SCOPES = 'https://www.googleapis.com/auth/calendar';
       let tokenClient;
@@ -78,7 +131,7 @@
       function handleAuthClick() {
         tokenClient.requestAccessToken({prompt: 'consent'});
       }
-
+      
       function handleTokenResponse(tokenResponse) {
         if (tokenResponse.error !== undefined) {
           onFailure({ message: `Auth error: ${tokenResponse.error}` });
@@ -90,6 +143,18 @@
           expires_at: expires_at
         }));
         getCalendarList(tokenResponse.access_token);
+      }
+
+      function getStoredToken() {
+        const tokenString = localStorage.getItem('google_auth_token');
+        if (!tokenString) return null;
+        
+        const tokenData = JSON.parse(tokenString);
+        if (Date.now() > tokenData.expires_at - 60000) {
+          localStorage.removeItem('google_auth_token');
+          return null;
+        }
+        return tokenData.access_token;
       }
       
       async function getCalendarList(accessToken) {
@@ -115,7 +180,11 @@
       async function getExistingShifts(accessToken) {
         showStatus('Loading existing schedule...');
         try {
-            document.querySelectorAll('#schedule-grid select').forEach(select => select.value = 'NONE');
+            // Reset all selects to NONE first
+            document.querySelectorAll('#schedule-grid select').forEach(select => {
+                select.value = 'NONE';
+                updateColor(select); // Reset color
+            });
             
             const response = await fetch(GET_SHIFTS_URL, {
                 method: 'POST',
@@ -131,6 +200,7 @@
                 const select = document.getElementById(`shift_${dateKey}`);
                 if (select) {
                     select.value = existingShifts[dateKey];
+                    updateColor(select); // Apply color for existing shifts
                 }
             }
         } catch (err) {
@@ -182,30 +252,32 @@
         .catch(onFailure);
       }
       
-      // Other helper functions
-      function getStoredToken() {
-        const tokenString = localStorage.getItem('google_auth_token');
-        if (!tokenString) return null;
-        const tokenData = JSON.parse(tokenString);
-        if (Date.now() > tokenData.expires_at - 60000) {
-          localStorage.removeItem('google_auth_token');
-          return null;
-        }
-        return tokenData.access_token;
+      // --- UI Helper Functions ---
+      
+      /**
+       * Updates the background color of the day-box based on the selection.
+       */
+      function updateColor(selectElement) {
+        const dayDiv = selectElement.parentElement;
+        const value = selectElement.value;
+        
+        // Remove all color classes
+        dayDiv.classList.remove('bg-w', 'bg-c1', 'bg-c2', 'bg-c1o', 'bg-c2o');
+        
+        // Add specific color class
+        if (value === 'W') dayDiv.classList.add('bg-w');
+        else if (value === 'C1') dayDiv.classList.add('bg-c1');
+        else if (value === 'C2') dayDiv.classList.add('bg-c2');
+        else if (value === 'C1O') dayDiv.classList.add('bg-c1o'); // New
+        else if (value === 'C2O') dayDiv.classList.add('bg-c2o'); // New
       }
 
-      function changeCalendar() {
-        localStorage.removeItem('google_auth_token');
-        showScreen('auth-screen');
-      }
-      
       function populateCalendarSelect(calendars) {
         const select = document.getElementById('calendar-select');
         select.innerHTML = '';
         calendars.forEach(cal => {
           const option = document.createElement('option');
           option.value = cal.id;
-          // FIX: Use cal.summary to match the backend
           option.textContent = cal.summary;
           select.appendChild(option);
         });
@@ -244,7 +316,20 @@
             let dayClasses = ['day'];
             if (isSunday) dayClasses.push('sunday');
             if (isSaturday) dayClasses.push('saturday');
-            html += `<div class="${dayClasses.join(' ')}"><div class="day-label">${displayLabel}</div><select id="shift_${isoString}" name="shift_${isoString}"><option value="NONE">None</option><option value="W">W</option><option value="C1">C1</option><option value="C2">C2</option></select></div>`;
+            
+            // Added onchange="updateColor(this)" and updated option text
+            html += `
+            <div class="${dayClasses.join(' ')}">
+                <div class="day-label">${displayLabel}</div>
+                <select id="shift_${isoString}" name="shift_${isoString}" onchange="updateColor(this)">
+                    <option value="NONE">None</option>
+                    <option value="W">Work</option>
+                    <option value="C1">Work & Call 1</option>
+                    <option value="C2">Work & Call 2</option>
+                    <option value="C1O">Call 1 Only</option>
+                    <option value="C2O">Call 2 Only</option>
+                </select>
+            </div>`;
           });
           html += '</div>';
         }

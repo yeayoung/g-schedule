@@ -1,9 +1,9 @@
 const { google } = require("googleapis");
 
 const EVENT_TAG = "Managed by Schedule Assistant";
+const TIME_ZONE = "America/New_York"; // Sets the rule for the whole app
 
 module.exports = async (req, res) => {
-  // CORS headers...
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -21,10 +21,9 @@ module.exports = async (req, res) => {
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
     
     const calendarId = formObject.calendarId;
-    if (!calendarId) {
-      return res.status(400).json({ message: 'No calendar was selected.' });
-    }
+    if (!calendarId) return res.status(400).json({ message: 'No calendar was selected.' });
 
+    // 1. Calculate Date Range (Same as before)
     const today = new Date();
     const dayOfWeek = today.getUTCDay();
     const daysUntilSunday = (7 - dayOfWeek) % 7;
@@ -34,6 +33,7 @@ module.exports = async (req, res) => {
     const endDate = new Date(startDate.getTime());
     endDate.setUTCDate(startDate.getUTCDate() + 42);
 
+    // 2. Delete Existing Events
     const existingEvents = await calendar.events.list({
       calendarId: calendarId,
       timeMin: startDate.toISOString(),
@@ -47,27 +47,38 @@ module.exports = async (req, res) => {
     );
     await Promise.all(deletePromises);
 
+    // 3. Create New Events
     const createPromises = [];
     let createdCount = 0;
+    
     for (const key in formObject) {
       if (key.startsWith("shift_")) {
         const shiftType = formObject[key];
         if (shiftType !== 'NONE') {
-            const isoDateString = key.substring(6);
-            const shiftDetails = getShiftTimes(isoDateString, shiftType);
+            const dateString = key.substring(6); // "2023-12-25"
+            const shiftDetails = getShiftDefinition(shiftType);
 
-            createPromises.push(
-              calendar.events.insert({
-                calendarId: calendarId,
-                resource: {
-                  summary: `${shiftDetails.title} [${EVENT_TAG}]`,
-                  description: EVENT_TAG,
-                  start: { dateTime: shiftDetails.startTime.toISOString() },
-                  end: { dateTime: shiftDetails.endTime.toISOString() },
-                },
-              })
-            );
-            createdCount++;
+            if (shiftDetails) {
+                createPromises.push(
+                  calendar.events.insert({
+                    calendarId: calendarId,
+                    resource: {
+                      summary: `${shiftDetails.title} [${EVENT_TAG}]`,
+                      description: EVENT_TAG,
+                      // HERE IS THE TIMEZONE FIX:
+                      start: { 
+                          dateTime: `${dateString}T${shiftDetails.startTime}`, 
+                          timeZone: TIME_ZONE 
+                      },
+                      end: { 
+                          dateTime: `${dateString}T${shiftDetails.endTime}`, 
+                          timeZone: TIME_ZONE 
+                      },
+                    },
+                  })
+                );
+                createdCount++;
+            }
         }
       }
     }
@@ -79,39 +90,39 @@ module.exports = async (req, res) => {
   }
 };
 
-function getShiftTimes(isoDateString, shiftType) {
-    const date = new Date(isoDateString + "T12:00:00Z");
-    const dayOfWeek = date.getUTCDay();
-    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+// Simplified Logic: No more UTC math. Just "Wall Clock" time.
+function getShiftDefinition(shiftType) {
     let title, startTime, endTime;
 
-    // Shift times in UTC (assuming EDT is UTC-4)
-    const W_START_HOUR_UTC = 13;   // 9:00 AM EDT
-    const W_END_HOUR_UTC = 23;     // 7:00 PM EDT
-    const W_END_MINUTE_UTC = 30;   // 7:30 PM EDT
-    
-    const C_START_HOUR_UTC = 13; // 9:00 AM EDT
-    const C_END_HOUR_UTC = 3;    // 11:59 PM EDT (which is 03:59 UTC the *next day*)
-    const C_END_MINUTE_UTC = 59; // 11:59 PM EDT
-    
     switch (shiftType) {
         case 'W':
             title = "Work Shift";
-            startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), W_START_HOUR_UTC, 0, 0));
-            endTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), W_END_HOUR_UTC, W_END_MINUTE_UTC, 0));
+            startTime = "09:00:00";
+            endTime = "19:30:00"; 
             break;
-        case 'C1': case 'C2':
-            // --- THIS IS THE ONLY LINE THAT CHANGED ---
-            title = (shiftType === 'C1') ? "Work & Call 1 Shift" : "Work & Call 2 Shift";
-            
-            // Start Time is 9:00 AM (13:00 UTC) on the selected day
-            startTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), C_START_HOUR_UTC, 0, 0));
-
-            // End Time is 11:59 PM (03:59 UTC on the next day)
-            const nextDay = new Date(date);
-            nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-            endTime = new Date(Date.UTC(nextDay.getUTCFullYear(), nextDay.getUTCMonth(), nextDay.getUTCDate(), C_END_HOUR_UTC, C_END_MINUTE_UTC, 0));
+        case 'C1': 
+            title = "Work & Call 1 Shift";
+            startTime = "09:00:00";
+            endTime = "23:59:00";
             break;
+        case 'C2':
+            title = "Work & Call 2 Shift";
+            startTime = "09:00:00";
+            endTime = "23:59:00";
+            break;
+        // --- NEW SHIFTS ---
+        case 'C1O':
+            title = "Call 1 Only";
+            startTime = "21:00:00"; // 9:00 PM
+            endTime = "23:59:00";   // 11:59 PM
+            break;
+        case 'C2O':
+            title = "Call 2 Only";
+            startTime = "21:00:00"; // 9:00 PM
+            endTime = "23:59:00";   // 11:59 PM
+            break;
+        default:
+            return null;
     }
     return { title, startTime, endTime };
 }
