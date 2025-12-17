@@ -347,12 +347,15 @@
             <div class="${dayClasses.join(' ')}">
                 <div class="day-label">${displayLabel}</div>
                 <select id="shift_${isoString}" name="shift_${isoString}" onchange="updateColor(this)">
-                    <option value="NONE">-</option>
-                    <option value="W">Work</option>
-                    <option value="C1">W&C1</option>
-                    <option value="C2">W&C2</option>
-                    <option value="C1O">C1</option>
-                    <option value="C2O">C2</option>
+                    <option value="NONE" style="color:black;">-</option>
+                    
+                    <option value="W" title="Work Shift" style="color:black;">Work</option>
+                    
+                    <option value="C1" title="Work & Call 1" style="color:black;">W&C1</option>
+                    <option value="C2" title="Work & Call 2" style="color:black;">W&C2</option>
+                    
+                    <option value="C1O" title="Call 1 Only" style="color:black;">C1</option>
+                    <option value="C2O" title="Call 2 Only" style="color:black;">C2</option>
                 </select>
             </div>`;
           });
