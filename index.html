@@ -28,19 +28,19 @@
       }
 
       /* Color Coding Classes */
-      .day.bg-w { background-color: #ff80ff; border-color: #ff00ff; } 
+      .day.bg-w { background-color: #ff80ab; border-color: #ff4081; } 
       .day.bg-c1 { background-color: #880e4f; border-color: #880e4f; } 
-      .day.bg-c2 { background-color: #c2185b; border-color: #c2185b; } 
-      .day.bg-c1o { background-color: #4a148c; border-color: #4a148c; }
-      .day.bg-c2o { background-color: #7b1fa2; border-color: #7b1fa2; }
+      .day.bg-c2 { background-color: #ad1457; border-color: #ad1457; } 
+      .day.bg-c1o { background-color: #311b92; border-color: #311b92; }
+      .day.bg-c2o { background-color: #6a1b9a; border-color: #6a1b9a; }
 
       /* Text Colors */
       .day.bg-c1 .day-label, .day.bg-c1 select, 
       .day.bg-c2 .day-label, .day.bg-c2 select,
       .day.bg-c1o .day-label, .day.bg-c1o select,
-      .day.bg-c2o .day-label, .day.bg-c2o select { color: white; }
+      .day.bg-c2o .day-label, .day.bg-c2o select { color: white; font-weight: 500;}
       
-      .day.bg-w .day-label, .day.bg-w select { color: black; }
+      .day.bg-w .day-label, .day.bg-w select { color: black; font-weight: 500;}
       
       /* Specific override for white text on dark backgrounds */
       .day.bg-c1 .day-label, .day.bg-c2 .day-label,
@@ -347,12 +347,12 @@
             <div class="${dayClasses.join(' ')}">
                 <div class="day-label">${displayLabel}</div>
                 <select id="shift_${isoString}" name="shift_${isoString}" onchange="updateColor(this)">
-                    <option value="NONE">None</option>
+                    <option value="NONE">-</option>
                     <option value="W">Work</option>
-                    <option value="C1">Work & Call 1</option>
-                    <option value="C2">Work & Call 2</option>
-                    <option value="C1O">Call 1 Only</option>
-                    <option value="C2O">Call 2 Only</option>
+                    <option value="C1">W&C1</option>
+                    <option value="C2">W&C2</option>
+                    <option value="C1O">C1</option>
+                    <option value="C2O">C2</option>
                 </select>
             </div>`;
           });
