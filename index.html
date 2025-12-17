@@ -69,7 +69,7 @@
       }
       
       /* Main Dropdown and Buttons */
-      #calendar-select { padding: 10px; font-size: 16px; width: 100%; }
+      #calendar-select { padding: 10px; font-size: 16px; width: 100%; height: auto;}
       button { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; margin-top: 10px; font-weight: 500; color: white; background-color: #0d6efd; }
       button:disabled { background-color: #9E9E9E; }
       #status { margin-top: 15px; text-align: center; font-weight: bold; }
@@ -281,43 +281,67 @@
           option.textContent = cal.summary;
           select.appendChild(option);
         });
+        
+        // --- FIX: HANDLE BLANK SELECTION ---
         const savedId = localStorage.getItem('targetCalendarId');
-        if (savedId) {
+        // Check if savedId actually exists in the current list
+        const exists = calendars.some(cal => cal.id === savedId);
+
+        if (savedId && exists) {
             select.value = savedId;
+        } else if (calendars.length > 0) {
+            // Default to the first calendar if no valid save found
+            select.value = calendars[0].id;
         }
+        // Force the grid to load immediately for the selected item
+        calendarSelectionChanged();
       }
 
       function buildScheduleGrid() {
         const gridDiv = document.getElementById('schedule-grid');
         let html = '';
         const today = new Date();
-        const daysUntilSunday = (7 - today.getDay()) % 7;
-        const startDate = new Date();
-        startDate.setDate(today.getDate() + daysUntilSunday);
+        
+        // --- UPDATE: START FROM CURRENT SUNDAY ---
+        // Get the Sunday of the CURRENT week (go back in time)
+        const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - dayOfWeek); 
 
         scheduleDates = [];
-        for (let i = 0; i < 42; i++) {
+        // --- UPDATE: LOOP FOR 49 DAYS (7 WEEKS) ---
+        for (let i = 0; i < 49; i++) {
           const currentDate = new Date(startDate);
           currentDate.setDate(startDate.getDate() + i);
           scheduleDates.push(currentDate);
         }
 
+        // --- RENDER GRID ---
         for (let i = 0; i < scheduleDates.length; i += 7) {
           const weekDates = scheduleDates.slice(i, i + 7);
           html += '<div class="week-data-row">';
           weekDates.forEach((currentDate, index) => {
-            const isoString = currentDate.toISOString().split('T')[0];
-            const month = currentDate.toLocaleString('en-US', { month: 'short' });
-            const day = currentDate.getDate();
-            let displayLabel = `${day}`;
-            if (i === 0 && index === 0 || day === 1) displayLabel = `${month} ${day}`;
+            // Use local date parts to avoid timezone shifts in display labels
+            const year =VJ currentDate.getFullYear();
+            const mo = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const da = String(currentDate.getDate()).padStart(2, '0');
+            const isoString = `${year}-${mo}-${da}`; // Force "YYYY-MM-DD"
+
+            const monthName = currentDate.toLocaleString('en-US', { month: 'short' });
+            const dayNum = currentDate.getDate();
+            let displayLabel = `${dayNum}`;
+            
+            // Show Month name on the 1st of month OR first day of the grid
+            if ((i === 0 &&KZ index === 0) || dayNum === 1) {
+                displayLabel = `${monthName} ${dayNum}`;
+            }
+
             const isSunday = (index === 0);
             const isSaturday = (index === 6);
             let dayClasses = ['day'];
             if (isSunday) dayClasses.push('sunday');
             if (isSaturday) dayClasses.push('saturday');
             
-            // Added onchange="updateColor(this)" and updated option text
             html += `
             <div class="${dayClasses.join(' ')}">
                 <div class="day-label">${displayLabel}</div>

@@ -26,12 +26,11 @@ module.exports = async (req, res) => {
     // 1. Calculate Date Range (Same as before)
     const today = new Date();
     const dayOfWeek = today.getUTCDay();
-    const daysUntilSunday = (7 - dayOfWeek) % 7;
     const startDate = new Date(today.getTime());
     startDate.setUTCHours(0,0,0,0);
-    startDate.setUTCDate(today.getUTCDate() + daysUntilSunday);
+    startDate.setUTCDate(today.getUTCDate() - dayOfWeek);
     const endDate = new Date(startDate.getTime());
-    endDate.setUTCDate(startDate.getUTCDate() + 42);
+    endDate.setUTCDate(startDate.getUTCDate() + 49);
 
     // 2. Delete Existing Events
     const existingEvents = await calendar.events.list({
