@@ -326,7 +326,9 @@
             const da = String(currentDate.getDate()).padStart(2, '0');
             const isoString = `${year}-${mo}-${da}`; // Force "YYYY-MM-DD"
 
-            constQU monthName = currentDate.toLocaleString('en-US', { month: 'short' });
+            // --- FIXED TYPO HERE (was constQU) ---
+            const monthName = currentDate.toLocaleString('en-US', { month: 'short' });
+            
             const dayNum = currentDate.getDate();
             let displayLabel = `${dayNum}`;
             
