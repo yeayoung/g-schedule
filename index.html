@@ -19,7 +19,7 @@
         border-radius: 6px; 
         padding: 4px 2px;
         border: 1px solid #e0e0e0;
-        background-color: white; /* Default 'None' color */
+        background-color: white; 
         transition: background-color 0.2s;
         display: flex;
         flex-direction: column;
@@ -27,24 +27,35 @@
         min-height: 50px;
       }
 
-      /* Color Coding Classes */
+      /* --- COLOR CODING CLASSES --- */
+      
+      /* Work Shift (W) - Lighter Pink/Magenta */
       .day.bg-w { background-color: #ff80ab; border-color: #ff4081; } 
+      /* Work & Call 1 (C1) - Deep Burgundy */
       .day.bg-c1 { background-color: #880e4f; border-color: #880e4f; } 
+      /* Work & Call 2 (C2) - Dark Raspberry */
       .day.bg-c2 { background-color: #ad1457; border-color: #ad1457; } 
+
+      /* Call 1 Only (C1O) - Deep Purple */
       .day.bg-c1o { background-color: #311b92; border-color: #311b92; }
+      /* Call 2 Only (C2O) - Standard Purple */
       .day.bg-c2o { background-color: #6a1b9a; border-color: #6a1b9a; }
 
-      /* Text Colors */
+      /* --- TEXT COLORS --- */
+      /* White text for dark backgrounds (WC1, WC2, C1O, C2O) */
       .day.bg-c1 .day-label, .day.bg-c1 select, 
       .day.bg-c2 .day-label, .day.bg-c2 select,
       .day.bg-c1o .day-label, .day.bg-c1o select,
-      .day.bg-c2o .day-label, .day.bg-c2o select { color: white; font-weight: 500;}
+      .day.bg-c2o .day-label, .day.bg-c2o select { 
+          color: #ffffff !important; 
+          font-weight: 500;
+      }
       
-      .day.bg-w .day-label, .day.bg-w select { color: black; font-weight: 500;}
-      
-      /* Specific override for white text on dark backgrounds */
-      .day.bg-c1 .day-label, .day.bg-c2 .day-label,
-      .day.bg-c1o .day-label, .day.bg-c2o .day-label { color: white !important; }
+      /* Black text for lighter backgrounds (Work) */
+      .day.bg-w .day-label, .day.bg-w select { 
+          color: #000000 !important; 
+          font-weight: 500;
+      }
 
       .day-header { font-weight: bold; font-size: 0.8em; color: #555; padding-bottom: 5px; text-align: center; }
       .day-label { font-size: 0.75em; color: #555; margin-bottom: 2px; font-weight: 600;}
@@ -53,29 +64,32 @@
       .day-header.saturday, .day.saturday .day-label { color: #1976d2; }
       
       /* Specific override for white text on dark backgrounds */
-      .day.bg-c1 .day-label, .day.bg-c2 .day-label { color: white !important; }
+      .day.bg-c1 .day-label, .day.bg-c2 .day-label,
+      .day.bg-c1o .day-label, .day.bg-c2o .day-label { color: white !important; }
 
       /* Select Box Styling - Smaller for Mobile */
       select { 
         width: 100%; 
         padding: 2px; 
-        font-size: 11px; /* Smaller font size */
+        font-size: 11px;
         border-radius: 4px; 
         border: 1px solid #ccc; 
         box-sizing: border-box; 
-        background-color: rgba(255,255,255,0.9); /* Slight transparency */
+        background-color: rgba(255,255,255,0.9);
         color: #333;
         height: 24px;
       }
       
       /* Main Dropdown and Buttons */
-      #calendar-select { padding: 10px; font-size: 16px; width: 100%; height: auto;}
-      button { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; margin-top: 10px; font-weight: 500; color: white; background-color: #0d6efd; }
-      button:disabled { background-color: #9E9E9E; }
-      #status { margin-top: 15px; text-align: center; font-weight: bold; }
-      .auth-button { background-color: #4285F4; }
-     
-      /* New Week Selection Toolbar */
+      #calendar-select { 
+          padding: 10px; 
+          font-size: 16px; 
+          width: 100%; 
+          height: auto; /* Fixes the 'empty box' bug */
+          margin-bottom: 10px;
+      }
+
+      /* --- NEW WEEK SELECTION TOOLBAR --- */
       .week-selection-container {
         background: #fff;
         border: 1px solid #ddd;
@@ -103,15 +117,21 @@
         border-radius: 15px;
         cursor: pointer;
         border: 1px solid transparent;
+        transition: all 0.2s;
       }
+      .week-option:hover { background-color: #e0e0e0; }
       .week-option.selected {
         background-color: #e8f0fe;
         border-color: #1967d2;
         color: #1967d2;
         font-weight: 600;
       }
-      .week-option input { display: none; } /* Hide actual checkbox, use custom style */
+      .week-option input { display: none; } /* Hide actual checkbox */
 
+      button { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; margin-top: 10px; font-weight: 500; color: white; background-color: #0d6efd; }
+      button:disabled { background-color: #9E9E9E; }
+      #status { margin-top: 15px; text-align: center; font-weight: bold; }
+      .auth-button { background-color: #4285F4; }
     </style>
     <script src="https://accounts.google.com/gsi/client" onload="gsiLoaded()" async defer></script>
   </head>
@@ -123,20 +143,17 @@
         <p>Please sign in with your Google account to authorize calendar access.</p>
         <button id="auth-button" class="auth-button" onclick="handleAuthClick()">Authorize with Google</button>
       </div>
-<p>
-          <select id="calendar-select" onchange="calendarSelectionChanged()"></select>
-      </p>
-      
-      <div id="week-selection" class="week-selection-container">
-        <div class="week-selection-title">Select weeks to sync (Max 4):</div>
-        <div class="week-checkboxes" id="week-checkboxes"></div>
-      </div>
-      
-      <div class="week-header-row">
+
       <div id="schedule-grid-screen" class="screen">
         <p>
-          <select id="calendar-select" onchange="calendarSelectionChanged()" style="max-width: 300px;"></select>
+          <select id="calendar-select" onchange="calendarSelectionChanged()"></select>
         </p>
+
+        <div id="week-selection" class="week-selection-container">
+            <div class="week-selection-title">Select weeks to sync (Max 4):</div>
+            <div class="week-checkboxes" id="week-checkboxes"></div>
+        </div>
+
         <div class="week-header-row">
           <div class="day-header sunday">Sun</div><div class="day-header">Mon</div><div class="day-header">Tue</div><div class="day-header">Wed</div><div class="day-header">Thu</div><div class="day-header">Fri</div><div class="day-header saturday">Sat</div>
         </div>
@@ -148,16 +165,16 @@
     </div>
 
     <script>
-      // --- USE RELATIVE URLS FOR LOCAL & LIVE ENVIRONMENTS ---
       const GET_CALENDARS_URL = '/api/get-calendars';
       const GET_SHIFTS_URL = '/api/get-shifts';
       const CREATE_EVENTS_URL = '/api/create-events';
-      const TOTAL_WEEKS_ZOOM = 6;
 
-      // --- PASTE YOUR GOOGLE CLOUD CLIENT ID HERE ---
-      const CLIENT_ID = '377649002021-agr0pdmlbcgpc5auikjglk2in0afcis4.apps.googleusercontent.com';
+      // --- PASTE YOUR REAL CLIENT ID HERE ---
+      const CLIENT_ID = 'YOUR_GCP_OAUTH_CLIENT_ID.apps.googleusercontent.com';
 
       const SCOPES = 'https://www.googleapis.com/auth/calendar';
+      const TOTAL_WEEKS_ZOOM = 6; 
+      
       let tokenClient;
       let scheduleDates = [];
 
@@ -215,7 +232,7 @@
           if (!response.ok) throw new Error(calendars.message);
 
           populateCalendarSelect(calendars);
-          buildScheduleGrid();
+          buildScheduleGrid(); // This now also builds the checkboxes
           await getExistingShifts(accessToken);
           
           showScreen('schedule-grid-screen');
@@ -228,10 +245,10 @@
       async function getExistingShifts(accessToken) {
         showStatus('Loading existing schedule...');
         try {
-            // Reset all selects to NONE first
+            // Reset all selects
             document.querySelectorAll('#schedule-grid select').forEach(select => {
                 select.value = 'NONE';
-                updateColor(select); // Reset color
+                updateColor(select); 
             });
             
             const response = await fetch(GET_SHIFTS_URL, {
@@ -244,13 +261,50 @@
             const existingShifts = await response.json();
             if (!response.ok) throw new Error(existingShifts.message);
             
+            // Populate grid
             for (const dateKey in existingShifts) {
                 const select = document.getElementById(`shift_${dateKey}`);
                 if (select) {
                     select.value = existingShifts[dateKey];
-                    updateColor(select); // Apply color for existing shifts
+                    updateColor(select); 
                 }
             }
+
+            // --- SMART DEFAULT LOGIC FOR CHECKBOXES ---
+            const allChecks = document.querySelectorAll('#week-checkboxes input');
+            let autoCheckedCount = 0;
+
+            allChecks.forEach((checkbox,WB, index) => {
+                const weekStartIndex = index * 7;
+                // Check if this week is empty
+                let hasShifts = false;
+                for(let d = 0; d < 7; d++) {
+                    // Safe check if scheduleDates element exists
+                    if (scheduleDates[weekStartIndex + d]) {
+                        const dateObj = scheduleDates[weekStartIndex + d];
+                        const year = dateObj.getFullYear();
+                        const mo = String(dateObj.getMonth() + 1).padStart(2, '0');
+                        const da = String(dateObj.getDate()).padStart(2, '0');
+                        const iso = `${year}-${mo}-${da}`;
+
+                        if (existingShifts[iso] && existingShifts[iso] !== 'NONE') {
+                            hasShifts = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // If empty and we haven't hit the limit of 4, check it
+                if (!hasShifts && autoCheckedCount < 4) {
+                    checkbox.checked = true;
+                    checkbox.parentElement.classList.add('selected');
+                    autoCheckedCount++;
+                } else {
+                    checkbox.checked = false;
+                    checkbox.parentElement.classList.remove('selected');
+                }
+            });
+
         } catch (err) {
             onFailure(err);
         }
@@ -281,56 +335,57 @@
         disableButton('submit-button', true);
         showStatus('Syncing selected weeks...');
         
-        // Calculate the specific date ranges for the selected weeks
+        // Calculate the specific date ranges
         const ranges = [];
         checkboxes.forEach(cb => {
-            const index = parseInt(cb.value); // e.g., 0, 7, 14
-            const start = scheduleDates[index]; // First day of week
-            const end = scheduleDates[index + 6]; // Last day of week
+            const index = parseInt(cb.value);
+            const start = scheduleDates[index]; 
+            const end = scheduleDates[index + 6]; 
             
-            // Create "YYYY-MM-DD" strings
             const sStr = start.getFullYear() + '-' + String(start.getMonth()+1).padStart(2,'0') + '-' + String(start.getDate()).padStart(2,'0');
             const eStr = end.getFullYear() + '-' + String(end.getMonth()+1).padStart(2,'0') + '-' + String(end.getDate()).padStart(2,'0');
             
             ranges.push({ start: sStr, end: eStr });
         });
 
-        // Collect form data
         const formObject = { calendarId: document.getElementById('calendar-select').value };
         document.querySelectorAll('#schedule-grid select').forEach(select => {
             formObject[select.id] = select.value;
         });
-
+        
         const accessToken = getStoredToken();
-        // ... (auth check) ...
+        if (!accessToken) {
+            onFailure({message: "Session expired. Please re-authorize."});
+            disableButton('submit-button', false);
+            return;
+        }
 
         fetch(CREATE_EVENTS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-            // SEND RANGES ALONG WITH DATA
-            body: JSON.stringify({ formObject, ranges }) 
+            body: JSON.stringify({ formObject, ranges })
         })
-        .then(/* ... rest is same ... */)
+        .then(response => response.json().then(data => ({ok: response.ok, data})))
+        .then(({ok, data}) => {
+            if (!ok) throw new Error(data.message);
+            onSuccess(data.message);
+        })
+        .catch(onFailure);
       }
       
       // --- UI Helper Functions ---
       
-      /**
-       * Updates the background color of the day-box based on the selection.
-       */
       function updateColor(selectElement) {
         const dayDiv = selectElement.parentElement;
         const value = selectElement.value;
         
-        // Remove all color classes
         dayDiv.classList.remove('bg-w', 'bg-c1', 'bg-c2', 'bg-c1o', 'bg-c2o');
         
-        // Add specific color class
         if (value === 'W') dayDiv.classList.add('bg-w');
         else if (value === 'C1') dayDiv.classList.add('bg-c1');
         else if (value === 'C2') dayDiv.classList.add('bg-c2');
-        else if (value === 'C1O') dayDiv.classList.add('bg-c1o'); // New
-        else if (value === 'C2O') dayDiv.classList.add('bg-c2o'); // New
+        else if (value === 'C1O') dayDiv.classList.add('bg-c1o');
+        else if (value === 'C2O') dayDiv.classList.add('bg-c2o');
       }
 
       function populateCalendarSelect(calendars) {
@@ -343,53 +398,83 @@
           select.appendChild(option);
         });
         
-        // --- FIX: HANDLE BLANK SELECTION ---
         const savedId = localStorage.getItem('targetCalendarId');
-        // Check if savedId actually exists in the current list
         const exists = calendars.some(cal => cal.id === savedId);
 
         if (savedId && exists) {
             select.value = savedId;
         } else if (calendars.length > 0) {
-            // Default to the first calendar if no valid save found
             select.value = calendars[0].id;
         }
-        // Force the grid to load immediately for the selected item
-        calendarSelectionChanged();
+        
+        // Don't trigger 'calendarSelectionChanged' here to avoid double-loading,
+        // because getCalendarList calls getExistingShifts immediately after.
       }
 
       function buildScheduleGrid() {
         const gridDiv = document.getElementById('schedule-grid');
         let html = '';
         const today = new Date();
+        
         const dayOfWeek = today.getDay(); 
         const startDate = new Date(today);
         startDate.setDate(today.getDate() - dayOfWeek); 
 
         scheduleDates = [];
-        // Loop for 6 weeks (42 days)
         for (let i = 0; i < (TOTAL_WEEKS_ZOOM * 7); i++) {
           const currentDate = new Date(startDate);
           currentDate.setDate(startDate.getDate() + i);
           scheduleDates.push(currentDate);
         }
-        
-        // Render Grid Rows
+
         for (let i = 0; i < scheduleDates.length; i += 7) {
-          // ... (Keep your existing row generation logic here) ...
-          // ... Ensure you use the "const monthName" fix from before ...
-          // Just ensure the loop logic matches the new scheduleDates length
+          const weekDates = scheduleDates.slice(i, i + 7);
+          html += '<div class="week-data-row">';
+          weekDates.forEach((currentDate, index) => {
+            const year = currentDate.getFullYear();
+            const mo = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const da = String(currentDate.getDate()).padStart(2, '0');
+            const isoString = `${year}-${mo}-${da}`;
+
+            const monthName = currentDate.toLocaleString('en-US', { month: 'short' });
+            const dayNum = currentDate.getDate();
+            let displayLabel = `${dayNum}`;
+            
+            if ((i === 0 && index === 0) || dayNum === 1) {
+                displayLabel = `${monthName} ${dayNum}`;
+            }
+
+            const isSunday = (index === 0);
+            const isSaturday = (index === 6);
+            let dayClasses = ['day'];
+            if (isSunday) dayClasses.push('sunday');
+            if (isSaturday) dayClasses.push('saturday');
+            
+            html += `
+            <div class="${dayClasses.join(' ')}">
+                <div class="day-label">${displayLabel}</div>
+                <select id="shift_${isoString}" name="shift_${isoString}" onchange="updateColor(this)">
+                    <option value="NONE" style="color:black;">-</option>
+                    <option value="W" title="Work Shift" style="color:black;">Work</option>
+                    <option value="C1" title="Work & Call 1" style="color:black;">WC1</option>
+                    <option value="C2" title="Work & Call 2" style="color:black;">WC2</option>
+                    <option value="C1O" title="Call 1 Only" style="color:black;">Call 1</option>
+                    <option value="C2O" title="Call 2 Only" style="color:black;">Call 2</option>
+                </select>
+            </div>`;
+          });
+          html += '</div>';
         }
         
-        // NEW: Render the Week Selection Checkboxes
+        // --- THIS WAS LIKELY MISSING BEFORE ---
         renderWeekSelection(scheduleDates);
         
-        gridDiv.innerHTML = html; // (Assuming html was built in the loop above)
+        gridDiv.innerHTML = html;
       }
 
-// 2. NEW: Render Checkboxes
       function renderWeekSelection(dates) {
           const container = document.getElementById('week-checkboxes');
+          if (!container) return; // safety
           container.innerHTML = '';
           
           for (let i = 0; i < dates.length; i += 7) {
@@ -402,7 +487,7 @@
               
               const checkbox = document.createElement('input');
               checkbox.type = 'checkbox';
-              checkbox.value = i; // Store the index offset
+              checkbox.value = i; 
               checkbox.onchange = (e) => handleWeekSelection(e.target);
               
               label.appendChild(checkbox);
@@ -411,69 +496,21 @@
           }
       }
 
-      // 3. NEW: Handle Selection Limit (Max 4)
       function handleWeekSelection(checkbox) {
           const allChecks = document.querySelectorAll('#week-checkboxes input');
           const checkedCount = Array.from(allChecks).filter(c => c.checked).length;
           
           if (checkedCount > 4 && checkbox.checked) {
-              checkbox.checked = false; // Prevent checking
+              checkbox.checked = false; 
               showStatus("You can only sync 4 weeks at a time.", "orange");
               setTimeout(() => showStatus(""), 2000);
           }
           
-          // Visual styling
           const label = checkbox.parentElement;
           if (checkbox.checked) label.classList.add('selected');
           else label.classList.remove('selected');
       }
 
-      // 4. UPDATE: Smart Defaults in getExistingShifts
-      async function getExistingShifts(accessToken) {
-        showStatus('Loading existing schedule...');
-        try {
-            // ... (Keep existing fetch logic) ...
-            const response = await fetch(GET_SHIFTS_URL, { ... });
-            const existingShifts = await response.json();
-            
-            // ... (Keep existing grid population logic) ...
-            for (const dateKey in existingShifts) {
-                // ... populate selects ...
-            }
-
-            // --- NEW: Smart Default Logic ---
-            const allChecks = document.querySelectorAll('#week-checkboxes input');
-            let autoCheckedCount = 0;
-
-            allChecks.forEach((checkbox, index) => {
-                const weekStartIndex = index * 7;
-                // Check if this week is empty
-                let hasShifts = false;
-                for(let d = 0; d < 7; d++) {
-                    const dateObj = scheduleDates[weekStartIndex + d];
-                    const iso = dateObj.toISOString().split('T')[0];
-                    if (existingShifts[iso] && existingShifts[iso] !== 'NONE') {
-                        hasShifts = true;
-                        break;
-                    }
-                }
-                
-                // If empty and we haven't hit the limit of 4, check it
-                if (!hasShifts && autoCheckedCount < 4) {
-                    checkbox.checked = true;
-                    checkbox.parentElement.classList.add('selected');
-                    autoCheckedCount++;
-                } else {
-                    checkbox.checked = false;
-                    checkbox.parentElement.classList.remove('selected');
-                }
-            });
-
-        } catch (err) {
-            onFailure(err);
-        }
-      }
-      
       function onSuccess(message) {
         disableButton('submit-button', false);
         showStatus(message, 'green');
@@ -481,7 +518,7 @@
 
       function onFailure(error) {
         disableButton('submit-button', false);
-        showStatus(`Error: ${error.message}`, 'red');
+        showStatus(`Error: ${error.message || error}`, 'red');
       }
       
       function showScreen(screenId) {
