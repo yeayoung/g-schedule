@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
     startDate.setUTCHours(0,0,0,0);
     startDate.setUTCDate(today.getUTCDate() - dayOfWeek);
     const endDate = new Date(startDate.getTime());
-    endDate.setUTCDate(startDate.getUTCDate() + 49);
+    endDate.setUTCDate(startDate.getUTCDate() + 56);
 
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: accessToken });

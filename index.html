@@ -13,6 +13,9 @@
       /* Grid Layout */
       .week-header-row, .week-data-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
       
+      /* --- NEW: Hidden Class for Filtered Rows --- */
+      .hidden-row { display: none !important; }
+
       /* Day Box Styling */
       .day { 
         text-align: center; 
@@ -28,21 +31,13 @@
       }
 
       /* --- COLOR CODING CLASSES --- */
-      
-      /* Work Shift (W) - Lighter Pink/Magenta */
       .day.bg-w { background-color: #ff80ab; border-color: #ff4081; } 
-      /* Work & Call 1 (C1) - Deep Burgundy */
       .day.bg-c1 { background-color: #880e4f; border-color: #880e4f; } 
-      /* Work & Call 2 (C2) - Dark Raspberry */
       .day.bg-c2 { background-color: #ad1457; border-color: #ad1457; } 
-
-      /* Call 1 Only (C1O) - Deep Purple */
       .day.bg-c1o { background-color: #311b92; border-color: #311b92; }
-      /* Call 2 Only (C2O) - Standard Purple */
       .day.bg-c2o { background-color: #6a1b9a; border-color: #6a1b9a; }
 
       /* --- TEXT COLORS --- */
-      /* White text for dark backgrounds (WC1, WC2, C1O, C2O) */
       .day.bg-c1 .day-label, .day.bg-c1 select, 
       .day.bg-c2 .day-label, .day.bg-c2 select,
       .day.bg-c1o .day-label, .day.bg-c1o select,
@@ -50,8 +45,6 @@
           color: #ffffff !important; 
           font-weight: 500;
       }
-      
-      /* Black text for lighter backgrounds (Work) */
       .day.bg-w .day-label, .day.bg-w select { 
           color: #000000 !important; 
           font-weight: 500;
@@ -63,11 +56,9 @@
       .day-header.sunday, .day.sunday .day-label { color: #d32f2f; }
       .day-header.saturday, .day.saturday .day-label { color: #1976d2; }
       
-      /* Specific override for white text on dark backgrounds */
       .day.bg-c1 .day-label, .day.bg-c2 .day-label,
       .day.bg-c1o .day-label, .day.bg-c2o .day-label { color: white !important; }
 
-      /* Select Box Styling - Smaller for Mobile */
       select { 
         width: 100%; 
         padding: 2px; 
@@ -80,16 +71,15 @@
         height: 24px;
       }
       
-      /* Main Dropdown and Buttons */
       #calendar-select { 
           padding: 10px; 
           font-size: 16px; 
           width: 100%; 
-          height: auto; /* Fixes the 'empty box' bug */
+          height: auto; 
           margin-bottom: 10px;
       }
 
-      /* --- NEW WEEK SELECTION TOOLBAR --- */
+      /* --- WEEK SELECTION TOOLBAR --- */
       .week-selection-container {
         background: #fff;
         border: 1px solid #ddd;
@@ -126,7 +116,7 @@
         color: #1967d2;
         font-weight: 600;
       }
-      .week-option input { display: none; } /* Hide actual checkbox */
+      .week-option input { display: none; } 
 
       button { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; margin-top: 10px; font-weight: 500; color: white; background-color: #0d6efd; }
       button:disabled { background-color: #9E9E9E; }
@@ -173,7 +163,7 @@
       const CLIENT_ID = '377649002021-agr0pdmlbcgpc5auikjglk2in0afcis4.apps.googleusercontent.com';
 
       const SCOPES = 'https://www.googleapis.com/auth/calendar';
-      const TOTAL_WEEKS_ZOOM = 8; 
+      const TOTAL_WEEKS_ZOOM = 8; // 8 Weeks
       
       let tokenClient;
       let scheduleDates = [];
@@ -232,7 +222,7 @@
           if (!response.ok) throw new Error(calendars.message);
 
           populateCalendarSelect(calendars);
-          buildScheduleGrid(); // This now also builds the checkboxes
+          buildScheduleGrid(); 
           await getExistingShifts(accessToken);
           
           showScreen('schedule-grid-screen');
@@ -270,16 +260,16 @@
                 }
             }
 
-            // --- SMART DEFAULT LOGIC FOR CHECKBOXES ---
+            // --- SMART DEFAULT & VISIBILITY LOGIC ---
             const allChecks = document.querySelectorAll('#week-checkboxes input');
             let autoCheckedCount = 0;
 
-            allChecks.forEach((checkbox,WB, index) => {
+            allChecks.forEach((checkbox, index) => {
                 const weekStartIndex = index * 7;
-                // Check if this week is empty
                 let hasShifts = false;
+                
+                // Scan the DOM elements for this week
                 for(let d = 0; d < 7; d++) {
-                    // Safe check if scheduleDates element exists
                     if (scheduleDates[weekStartIndex + d]) {
                         const dateObj = scheduleDates[weekStartIndex + d];
                         const year = dateObj.getFullYear();
@@ -287,14 +277,15 @@
                         const da = String(dateObj.getDate()).padStart(2, '0');
                         const iso = `${year}-${mo}-${da}`;
 
-                        if (existingShifts[iso] && existingShifts[iso] !== 'NONE') {
+                        const selectEl = document.getElementById(`shift_${iso}`);
+                        if (selectEl && selectEl.value !== 'NONE') {
                             hasShifts = true;
                             break;
                         }
                     }
                 }
                 
-                // If empty and we haven't hit the limit of 4, check it
+                // Smart Default: Auto-check empty weeks (up to 4)
                 if (!hasShifts && autoCheckedCount < 4) {
                     checkbox.checked = true;
                     checkbox.parentElement.classList.add('selected');
@@ -303,7 +294,14 @@
                     checkbox.checked = false;
                     checkbox.parentElement.classList.remove('selected');
                 }
+                
+                // --- TRIGGER VISIBILITY UPDATE ---
+                // We manually call the toggle function to ensure the grid 
+                // matches the initial checked state.
+                toggleRowVisibility(index, checkbox.checked);
             });
+            
+            showStatus('');
 
         } catch (err) {
             onFailure(err);
@@ -335,7 +333,6 @@
         disableButton('submit-button', true);
         showStatus('Syncing selected weeks...');
         
-        // Calculate the specific date ranges
         const ranges = [];
         checkboxes.forEach(cb => {
             const index = parseInt(cb.value);
@@ -406,9 +403,6 @@
         } else if (calendars.length > 0) {
             select.value = calendars[0].id;
         }
-        
-        // Don't trigger 'calendarSelectionChanged' here to avoid double-loading,
-        // because getCalendarList calls getExistingShifts immediately after.
       }
 
       function buildScheduleGrid() {
@@ -429,7 +423,11 @@
 
         for (let i = 0; i < scheduleDates.length; i += 7) {
           const weekDates = scheduleDates.slice(i, i + 7);
-          html += '<div class="week-data-row">';
+          const weekIndex = i / 7;
+          
+          // --- UPDATED: Add ID to row and HIDDEN class by default ---
+          html += `<div class="week-data-row hidden-row" id="week-row-${weekIndex}">`;
+          
           weekDates.forEach((currentDate, index) => {
             const year = currentDate.getFullYear();
             const mo = String(currentDate.getMonth() + 1).padStart(2, '0');
@@ -466,15 +464,13 @@
           html += '</div>';
         }
         
-        // --- THIS WAS LIKELY MISSING BEFORE ---
         renderWeekSelection(scheduleDates);
-        
         gridDiv.innerHTML = html;
       }
 
       function renderWeekSelection(dates) {
           const container = document.getElementById('week-checkboxes');
-          if (!container) return; // safety
+          if (!container) return; 
           container.innerHTML = '';
           
           for (let i = 0; i < dates.length; i += 7) {
@@ -509,6 +505,22 @@
           const label = checkbox.parentElement;
           if (checkbox.checked) label.classList.add('selected');
           else label.classList.remove('selected');
+
+          // --- Trigger visibility update based on final checkbox state ---
+          const weekIndex = parseInt(checkbox.value) / 7;
+          toggleRowVisibility(weekIndex, checkbox.checked);
+      }
+
+      // --- NEW FUNCTION: Show/Hide Rows ---
+      function toggleRowVisibility(weekIndex, isVisible) {
+          const row = document.getElementById(`week-row-${weekIndex}`);
+          if (row) {
+              if (isVisible) {
+                  row.classList.remove('hidden-row');
+              } else {
+                  row.classList.add('hidden-row');
+              }
+          }
       }
 
       function onSuccess(message) {
