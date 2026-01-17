@@ -74,6 +74,44 @@
       button:disabled { background-color: #9E9E9E; }
       #status { margin-top: 15px; text-align: center; font-weight: bold; }
       .auth-button { background-color: #4285F4; }
+     
+      /* New Week Selection Toolbar */
+      .week-selection-container {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 15px;
+      }
+      .week-selection-title {
+        font-weight: bold;
+        font-size: 0.9em;
+        margin-bottom: 8px;
+        color: #555;
+      }
+      .week-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .week-option {
+        display: flex;
+        align-items: center;
+        font-size: 0.85em;
+        background: #f1f3f4;
+        padding: 5px 10px;
+        border-radius: 15px;
+        cursor: pointer;
+        border: 1px solid transparent;
+      }
+      .week-option.selected {
+        background-color: #e8f0fe;
+        border-color: #1967d2;
+        color: #1967d2;
+        font-weight: 600;
+      }
+      .week-option input { display: none; } /* Hide actual checkbox, use custom style */
+
     </style>
     <script src="https://accounts.google.com/gsi/client" onload="gsiLoaded()" async defer></script>
   </head>
@@ -85,7 +123,16 @@
         <p>Please sign in with your Google account to authorize calendar access.</p>
         <button id="auth-button" class="auth-button" onclick="handleAuthClick()">Authorize with Google</button>
       </div>
-
+<p>
+          <select id="calendar-select" onchange="calendarSelectionChanged()"></select>
+      </p>
+      
+      <div id="week-selection" class="week-selection-container">
+        <div class="week-selection-title">Select weeks to sync (Max 4):</div>
+        <div class="week-checkboxes" id="week-checkboxes"></div>
+      </div>
+      
+      <div class="week-header-row">
       <div id="schedule-grid-screen" class="screen">
         <p>
           <select id="calendar-select" onchange="calendarSelectionChanged()" style="max-width: 300px;"></select>
@@ -105,6 +152,7 @@
       const GET_CALENDARS_URL = '/api/get-calendars';
       const GET_SHIFTS_URL = '/api/get-shifts';
       const CREATE_EVENTS_URL = '/api/create-events';
+      const TOTAL_WEEKS_ZOOM = 6;
 
       // --- PASTE YOUR GOOGLE CLOUD CLIENT ID HERE ---
       const CLIENT_ID = '377649002021-agr0pdmlbcgpc5auikjglk2in0afcis4.apps.googleusercontent.com';
@@ -224,32 +272,45 @@
       }
 
       function handleFormSubmit() {
+        const checkboxes = document.querySelectorAll('#week-checkboxes input:checked');
+        if (checkboxes.length === 0) {
+            showStatus("Please select at least one week to sync.", "red");
+            return;
+        }
+
         disableButton('submit-button', true);
-        showStatus('Syncing schedule...');
+        showStatus('Syncing selected weeks...');
         
+        // Calculate the specific date ranges for the selected weeks
+        const ranges = [];
+        checkboxes.forEach(cb => {
+            const index = parseInt(cb.value); // e.g., 0, 7, 14
+            const start = scheduleDates[index]; // First day of week
+            const end = scheduleDates[index + 6]; // Last day of week
+            
+            // Create "YYYY-MM-DD" strings
+            const sStr = start.getFullYear() + '-' + String(start.getMonth()+1).padStart(2,'0') + '-' + String(start.getDate()).padStart(2,'0');
+            const eStr = end.getFullYear() + '-' + String(end.getMonth()+1).padStart(2,'0') + '-' + String(end.getDate()).padStart(2,'0');
+            
+            ranges.push({ start: sStr, end: eStr });
+        });
+
+        // Collect form data
         const formObject = { calendarId: document.getElementById('calendar-select').value };
         document.querySelectorAll('#schedule-grid select').forEach(select => {
             formObject[select.id] = select.value;
         });
-        
+
         const accessToken = getStoredToken();
-        if (!accessToken) {
-            onFailure({message: "Session expired. Please re-authorize."});
-            disableButton('submit-button', false);
-            return;
-        }
+        // ... (auth check) ...
 
         fetch(CREATE_EVENTS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-            body: JSON.stringify({ formObject })
+            // SEND RANGES ALONG WITH DATA
+            body: JSON.stringify({ formObject, ranges }) 
         })
-        .then(response => response.json().then(data => ({ok: response.ok, data})))
-        .then(({ok, data}) => {
-            if (!ok) throw new Error(data.message);
-            onSuccess(data.message);
-        })
-        .catch(onFailure);
+        .then(/* ... rest is same ... */)
       }
       
       // --- UI Helper Functions ---
@@ -301,67 +362,116 @@
         const gridDiv = document.getElementById('schedule-grid');
         let html = '';
         const today = new Date();
-        
-        // --- START FROM CURRENT SUNDAY ---
-        const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
+        const dayOfWeek = today.getDay(); 
         const startDate = new Date(today);
         startDate.setDate(today.getDate() - dayOfWeek); 
 
         scheduleDates = [];
-        // --- LOOP FOR 49 DAYS (7 WEEKS) ---
-        for (let i = 0; i < 49; i++) {
+        // Loop for 6 weeks (42 days)
+        for (let i = 0; i < (TOTAL_WEEKS_ZOOM * 7); i++) {
           const currentDate = new Date(startDate);
           currentDate.setDate(startDate.getDate() + i);
           scheduleDates.push(currentDate);
         }
-
-        // --- RENDER GRID ---
+        
+        // Render Grid Rows
         for (let i = 0; i < scheduleDates.length; i += 7) {
-          const weekDates = scheduleDates.slice(i, i + 7);
-          html += '<div class="week-data-row">';
-          weekDates.forEach((currentDate, index) => {
-            // Use local date parts
-            const year = currentDate.getFullYear();
-            const mo = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const da = String(currentDate.getDate()).padStart(2, '0');
-            const isoString = `${year}-${mo}-${da}`; // Force "YYYY-MM-DD"
+          // ... (Keep your existing row generation logic here) ...
+          // ... Ensure you use the "const monthName" fix from before ...
+          // Just ensure the loop logic matches the new scheduleDates length
+        }
+        
+        // NEW: Render the Week Selection Checkboxes
+        renderWeekSelection(scheduleDates);
+        
+        gridDiv.innerHTML = html; // (Assuming html was built in the loop above)
+      }
 
-            // --- FIXED TYPO HERE (was constQU) ---
-            const monthName = currentDate.toLocaleString('en-US', { month: 'short' });
+// 2. NEW: Render Checkboxes
+      function renderWeekSelection(dates) {
+          const container = document.getElementById('week-checkboxes');
+          container.innerHTML = '';
+          
+          for (let i = 0; i < dates.length; i += 7) {
+              const weekStart = dates[i];
+              const dateStr = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              
+              const label = document.createElement('label');
+              label.className = 'week-option';
+              label.id = `week-label-${i/7}`;
+              
+              const checkbox = document.createElement('input');
+              checkbox.type = 'checkbox';
+              checkbox.value = i; // Store the index offset
+              checkbox.onchange = (e) => handleWeekSelection(e.target);
+              
+              label.appendChild(checkbox);
+              label.appendChild(document.createTextNode(`Week of ${dateStr}`));
+              container.appendChild(label);
+          }
+      }
+
+      // 3. NEW: Handle Selection Limit (Max 4)
+      function handleWeekSelection(checkbox) {
+          const allChecks = document.querySelectorAll('#week-checkboxes input');
+          const checkedCount = Array.from(allChecks).filter(c => c.checked).length;
+          
+          if (checkedCount > 4 && checkbox.checked) {
+              checkbox.checked = false; // Prevent checking
+              showStatus("You can only sync 4 weeks at a time.", "orange");
+              setTimeout(() => showStatus(""), 2000);
+          }
+          
+          // Visual styling
+          const label = checkbox.parentElement;
+          if (checkbox.checked) label.classList.add('selected');
+          else label.classList.remove('selected');
+      }
+
+      // 4. UPDATE: Smart Defaults in getExistingShifts
+      async function getExistingShifts(accessToken) {
+        showStatus('Loading existing schedule...');
+        try {
+            // ... (Keep existing fetch logic) ...
+            const response = await fetch(GET_SHIFTS_URL, { ... });
+            const existingShifts = await response.json();
             
-            const dayNum = currentDate.getDate();
-            let displayLabel = `${dayNum}`;
-            
-            // Show Month name on the 1st of month OR first day of the grid
-            if ((i === 0 && index === 0) || dayNum === 1) {
-                displayLabel = `${monthName} ${dayNum}`;
+            // ... (Keep existing grid population logic) ...
+            for (const dateKey in existingShifts) {
+                // ... populate selects ...
             }
 
-            const isSunday = (index === 0);
-            const isSaturday = (index === 6);
-            let dayClasses = ['day'];
-            if (isSunday) dayClasses.push('sunday');
-            if (isSaturday) dayClasses.push('saturday');
-            
-            html += `
-            <div class="${dayClasses.join(' ')}">
-                <div class="day-label">${displayLabel}</div>
-                <select id="shift_${isoString}" name="shift_${isoString}" onchange="updateColor(this)">
-                    <option value="NONE" style="color:black;">-</option>
-                    
-                    <option value="W" title="Work Shift" style="color:black;">Work</option>
-                    
-                    <option value="C1" title="Work & Call 1" style="color:black;">W&C1</option>
-                    <option value="C2" title="Work & Call 2" style="color:black;">W&C2</option>
-                    
-                    <option value="C1O" title="Call 1 Only" style="color:black;">C1</option>
-                    <option value="C2O" title="Call 2 Only" style="color:black;">C2</option>
-                </select>
-            </div>`;
-          });
-          html += '</div>';
+            // --- NEW: Smart Default Logic ---
+            const allChecks = document.querySelectorAll('#week-checkboxes input');
+            let autoCheckedCount = 0;
+
+            allChecks.forEach((checkbox, index) => {
+                const weekStartIndex = index * 7;
+                // Check if this week is empty
+                let hasShifts = false;
+                for(let d = 0; d < 7; d++) {
+                    const dateObj = scheduleDates[weekStartIndex + d];
+                    const iso = dateObj.toISOString().split('T')[0];
+                    if (existingShifts[iso] && existingShifts[iso] !== 'NONE') {
+                        hasShifts = true;
+                        break;
+                    }
+                }
+                
+                // If empty and we haven't hit the limit of 4, check it
+                if (!hasShifts && autoCheckedCount < 4) {
+                    checkbox.checked = true;
+                    checkbox.parentElement.classList.add('selected');
+                    autoCheckedCount++;
+                } else {
+                    checkbox.checked = false;
+                    checkbox.parentElement.classList.remove('selected');
+                }
+            });
+
+        } catch (err) {
+            onFailure(err);
         }
-        gridDiv.innerHTML = html;
       }
       
       function onSuccess(message) {
