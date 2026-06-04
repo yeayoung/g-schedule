@@ -16,14 +16,14 @@ module.exports = async (req, res) => {
     const accessToken = req.headers.authorization.split('Bearer ')[1];
     const { calendarId } = req.body;
 
-    // Calculate the 6-week date range on the server
+    // Calculate the 12-week date range on the server
     const today = new Date();
     const dayOfWeek = today.getUTCDay(); // 0 (Sun) - 6 (Sat)
     const startDate = new Date(today.getTime());
     startDate.setUTCHours(0,0,0,0);
     startDate.setUTCDate(today.getUTCDate() - dayOfWeek);
     const endDate = new Date(startDate.getTime());
-    endDate.setUTCDate(startDate.getUTCDate() + 56);
+    endDate.setUTCDate(startDate.getUTCDate() + 84);
 
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: accessToken });
